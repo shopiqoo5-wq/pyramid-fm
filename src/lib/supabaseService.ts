@@ -468,9 +468,96 @@ export const SupabaseService = {
     return snakeToCamel(data);
   },
 
+  async updateAttendanceRecord(id: string, updates: any) {
+    const { error } = await supabase.from('attendance_records').update(camelToSnake(updates)).eq('id', id);
+    if (error) throw error;
+  },
+
+  async deleteAttendanceRecord(id: string) {
+    const { error } = await supabase.from('attendance_records').delete().eq('id', id);
+    if (error) throw error;
+  },
+
   async getWorkReports() {
     const { data, error } = await supabase.from('work_reports').select('*');
     if (error) throw error;
     return snakeToCamel(data);
+  },
+
+  // --- TIME OFF ---
+  async getTimeOffRequests() {
+    const { data, error } = await supabase.from('time_off_requests').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    return snakeToCamel(data) as any[];
+  },
+
+  async submitTimeOffRequest(request: any) {
+    const { error } = await supabase.from('time_off_requests').insert(camelToSnake(request));
+    if (error) throw error;
+  },
+
+  async updateTimeOffStatus(id: string, updates: any) {
+    const { error } = await supabase.from('time_off_requests').update(camelToSnake(updates)).eq('id', id);
+    if (error) throw error;
+  },
+
+  // --- PROTOCOLS ---
+  async getSiteProtocols() {
+    const { data, error } = await supabase.from('site_protocols').select('*');
+    if (error) throw error;
+    return snakeToCamel(data) as any[];
+  },
+
+  async addSiteProtocol(protocol: any) {
+    const { error } = await supabase.from('site_protocols').insert(camelToSnake(protocol));
+    if (error) throw error;
+  },
+
+  async deleteSiteProtocol(id: string) {
+    const { error } = await supabase.from('site_protocols').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // --- ROLES & ASSIGNMENTS ---
+  async getCustomRoles() {
+    const { data, error } = await supabase.from('custom_roles').select('*');
+    if (error) throw error;
+    return snakeToCamel(data) as any[];
+  },
+
+  async addCustomRole(role: any) {
+    const { error } = await supabase.from('custom_roles').insert(camelToSnake(role));
+    if (error) throw error;
+  },
+
+  async updateCustomRole(id: string, updates: any) {
+    const { error } = await supabase.from('custom_roles').update(camelToSnake(updates)).eq('id', id);
+    if (error) throw error;
+  },
+
+  async deleteCustomRole(id: string) {
+    const { error } = await supabase.from('custom_roles').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  async getWorkAssignments() {
+    const { data, error } = await supabase.from('work_assignments').select('*');
+    if (error) throw error;
+    return snakeToCamel(data) as any[];
+  },
+
+  async addWorkAssignment(assignment: any) {
+    const { error } = await supabase.from('work_assignments').insert(camelToSnake(assignment));
+    if (error) throw error;
+  },
+
+  async updateWorkAssignment(id: string, updates: any) {
+    const { error } = await supabase.from('work_assignments').update(camelToSnake(updates)).eq('id', id);
+    if (error) throw error;
+  },
+
+  async deleteWorkAssignment(id: string) {
+    const { error } = await supabase.from('work_assignments').delete().eq('id', id);
+    if (error) throw error;
   }
 };

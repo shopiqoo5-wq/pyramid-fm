@@ -72,6 +72,7 @@ import AttendanceTerminal from './pages/Portal/AttendanceTerminal';
 import SupportDesk from './pages/Portal/SupportDesk';
 import TeamManagement from './pages/Portal/TeamManagement';
 import AgreementConsole from './pages/Portal/AgreementConsole';
+import AttendanceLoggingQR from './pages/AttendanceLoggingQR';
 
 const App: React.FC = () => {
   const initSupabase = useStore((state) => state.initSupabase);
@@ -149,6 +150,8 @@ const App: React.FC = () => {
             </Route>
 
           </Route>
+ 
+          <Route path="/kiosk/attendance" element={<AttendanceLoggingQR />} />
         </Route>
 
         {/* Client Portal Routes */}

@@ -112,7 +112,7 @@ const EmployeeLayout: React.FC = () => {
       </AnimatePresence>
 
       {/* Enhanced Tab Bar for Mobile */}
-      <nav className="mobile-bottom-nav" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+      <nav className="mobile-bottom-nav" style={{ gridTemplateColumns: 'repeat(5, 1fr)', paddingBottom: 'env(safe-area-inset-bottom, 20px)', height: 'calc(80px + env(safe-area-inset-bottom, 20px))' }}>
         <button 
           onClick={() => { setShowProfile(false); navigate('/employee/dashboard'); }}
           className={`nav-tab-field ${!showProfile && location.pathname === '/employee/dashboard' ? 'active' : ''}`}

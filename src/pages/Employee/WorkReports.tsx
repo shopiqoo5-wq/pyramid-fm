@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStore } from '../../store';
 import { Card, Badge, Button } from '../../components/ui';
@@ -34,6 +34,7 @@ const WorkReports: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [locationVerified, setLocationVerified] = useState(false);
   const [distError, setDistError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
@@ -247,11 +248,22 @@ const WorkReports: React.FC = () => {
               </button>
             </header>
             
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem', overflowY: 'auto', padding: '0.5rem 0.5rem 120px 0.5rem' }} className="hide-scrollbar">
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem', overflowY: 'auto', padding: '0.5rem 0.5rem calc(130px + env(safe-area-inset-bottom, 20px)) 0.5rem' }} className="hide-scrollbar">
               <div className="input-group" style={{ margin: 0 }}>
                 <label className="input-label" style={{ marginBottom: '1rem' }}>Photographic Evidence (Required)</label>
+                <input 
+                  type="file" accept="image/*" capture="environment"
+                  ref={fileInputRef}
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setImagePreview(URL.createObjectURL(e.target.files[0]));
+                    }
+                  }}
+                  style={{ display: 'none' }} 
+                />
                 <motion.div 
                   whileTap={{ scale: 0.98 }}
+                  onClick={() => fileInputRef.current?.click()}
                   style={{ 
                     aspectRatio: '1', 
                     borderRadius: '32px', 
@@ -279,15 +291,6 @@ const WorkReports: React.FC = () => {
                       <span style={{ fontSize: '0.9rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Open Tactical Camera</span>
                     </>
                   )}
-                  <input 
-                    type="file" accept="image/*" capture="environment"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setImagePreview(URL.createObjectURL(e.target.files[0]));
-                      }
-                    }}
-                    style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', zIndex: 10 }} 
-                  />
                 </motion.div>
                 
                 {/* Geofence Verification Block */}

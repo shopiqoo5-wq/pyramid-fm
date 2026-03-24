@@ -370,7 +370,7 @@ export const useStore = create<AppState>()((set, get) => ({
         products, companies, orders, locations, inventory, 
         contracts, bundles, exceptions, fraudFlags, 
         complianceDocs, incidents, workReports, attendance,
-        users, employees
+        users, employees, timeOff, roles, assignments, protocols
       ] = await Promise.all([
         SupabaseService.getProducts(),
         SupabaseService.getCompanies(),
@@ -386,7 +386,11 @@ export const useStore = create<AppState>()((set, get) => ({
         SupabaseService.getWorkReports(),
         SupabaseService.getAttendance(),
         SupabaseService.getUsers(),
-        SupabaseService.getEmployees()
+        SupabaseService.getEmployees(),
+        SupabaseService.getTimeOffRequests(),
+        SupabaseService.getCustomRoles(),
+        SupabaseService.getWorkAssignments(),
+        SupabaseService.getSiteProtocols()
       ]);
       
       set({ 
@@ -394,7 +398,11 @@ export const useStore = create<AppState>()((set, get) => ({
         contracts, productBundles: bundles, exceptions, fraudFlags, 
         complianceDocs, fieldIncidents: incidents, workReports, 
         attendanceRecords: attendance,
-        users, employees 
+        users, employees, 
+        timeOffRequests: timeOff,
+        customRoles: roles,
+        workAssignments: assignments,
+        siteProtocols: protocols
       });
       
       // If we have a session, set current user
@@ -499,6 +507,17 @@ export const useStore = create<AppState>()((set, get) => ({
     }
   },
   dailyTaskProgress: {},
+  timeOffRequests: [],
+  siteProtocols: [],
+  customRoles: [
+    { id: 'role-1', name: 'Cleaner', permissions: ['view_schedule'], isSystem: true },
+    { id: 'role-2', name: 'Supervisor', permissions: ['view_schedule', 'view_reports', 'manage_attendance'], isSystem: true },
+    { id: 'role-3', name: 'Security Guard', permissions: ['view_schedule', 'manage_incidents'], isSystem: false }
+  ],
+  workAssignments: [
+    { id: 'wa-1', title: 'Daily Facility Sweep', description: 'Clean primary concourse and restock supplies.', assignedRole: 'Cleaner', recurrence: 'daily', status: 'active', createdAt: new Date().toISOString() },
+    { id: 'wa-2', title: 'Perimeter Security Check', description: 'Ensure all gates are locked after 10PM.', assignedRole: 'Security Guard', recurrence: 'daily', status: 'active', createdAt: new Date().toISOString() }
+  ],  
 
   getClientPrice: (productId, companyId) => {
     const product = get().products.find(p => p.id === productId);
@@ -2118,59 +2137,54 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   submitAttendance: async (record) => {
-    const { employeeId, imageUrl, checkOut, locationId, type, latitude, longitude } = record;
-    
-    set(state => {
-      const isOut = !!checkOut || type === 'out';
-      let activeIndex = -1;
-      for (let i = state.attendanceRecords.length - 1; i >= 0; i--) {
-        if (state.attendanceRecords[i].employeeId === employeeId && !state.attendanceRecords[i].checkOut) {
-          activeIndex = i;
-          break;
-        }
-      }
+    const { employeeId, locationId, imageUrl, checkOut, type, latitude, longitude, metadata } = record;
+    const isOut = !!checkOut || type === 'out';
+    const matchScore = metadata?.faceMatchScore || 100;
+    const timestamp = new Date().toISOString();
 
-      if (isOut && activeIndex !== -1) {
-        // Punch Out: Update existing record
-        const newRecords = [...state.attendanceRecords];
-        const matchScore = record.metadata?.faceMatchScore || 100;
-        newRecords[activeIndex] = {
-          ...newRecords[activeIndex],
-          checkOut: checkOut || new Date().toISOString(),
+    if (isOut) {
+      const activeRecord = get().attendanceRecords.find(r => r.employeeId === employeeId && !r.checkOut);
+      if (activeRecord) {
+        const updated = {
+          ...activeRecord,
+          checkOut: checkOut || timestamp,
           type: 'out',
           photoUrl: imageUrl,
           latitude,
           longitude,
           status: matchScore >= 90 ? 'verified' : 'pending',
-          metadata: {
-            ...newRecords[activeIndex].metadata,
-            ...record.metadata
-          }
-        };
-        return { attendanceRecords: newRecords };
-      } else {
-        // Punch In: Create new record
-        const matchScore = record.metadata?.faceMatchScore || 100;
-        const newRecord: AttendanceRecord = {
-          id: `att-${Math.random().toString(36).substr(2, 9)}`,
-          employeeId,
-          locationId,
-          imageUrl,
-          photoUrl: imageUrl,
-          type: 'in',
-          latitude,
-          longitude,
-          timestamp: new Date().toISOString(),
-          checkIn: new Date().toISOString(),
-          status: matchScore >= 90 ? 'verified' : 'pending',
-          metadata: record.metadata || {}
-        };
-        return { attendanceRecords: [...state.attendanceRecords, newRecord] };
+          metadata: { ...activeRecord.metadata, ...metadata }
+        } as AttendanceRecord;
+        set(state => ({
+          attendanceRecords: state.attendanceRecords.map(r => r.id === activeRecord.id ? updated : r)
+        }));
+        if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+          await SupabaseService.updateAttendanceRecord(activeRecord.id, updated);
+        }
       }
-    });
+    } else {
+      const newRecord: AttendanceRecord = {
+        id: generateUUID(),
+        employeeId,
+        locationId,
+        imageUrl,
+        photoUrl: imageUrl,
+        type: 'in',
+        latitude,
+        longitude,
+        timestamp,
+        checkIn: timestamp,
+        status: matchScore >= 90 ? 'verified' : 'pending',
+        metadata: metadata || {}
+      };
+      set(state => ({ attendanceRecords: [...state.attendanceRecords, newRecord] }));
+      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+        await SupabaseService.submitAttendance(newRecord);
+      }
+    }
 
     get().addAlert({ 
-      message: (record.checkOut || record.type === 'out') ? 'Secure Check-out Logged.' : 'Secure Check-in Verified.', 
+      message: isOut ? 'Secure Check-out Logged.' : 'Secure Check-in Verified.', 
       type: 'success' 
     });
   },
@@ -2290,20 +2304,13 @@ export const useStore = create<AppState>()((set, get) => ({
     get().addAlert({ message: 'Shift operation cancelled.', type: 'warning' });
   },
 
-  // Phase 47 Actions
-  customRoles: [
-    { id: 'role-1', name: 'Cleaner', permissions: ['view_schedule'], isSystem: true },
-    { id: 'role-2', name: 'Supervisor', permissions: ['view_schedule', 'view_reports', 'manage_attendance'], isSystem: true },
-    { id: 'role-3', name: 'Security Guard', permissions: ['view_schedule', 'manage_incidents'], isSystem: false }
-  ],
-  workAssignments: [
-    { id: 'wa-1', title: 'Daily Facility Sweep', description: 'Clean primary concourse and restock supplies.', assignedRole: 'Cleaner', recurrence: 'daily', status: 'active', createdAt: new Date().toISOString() },
-    { id: 'wa-2', title: 'Perimeter Security Check', description: 'Ensure all gates are locked after 10PM.', assignedRole: 'Security Guard', recurrence: 'daily', status: 'active', createdAt: new Date().toISOString() }
-  ],
   
   addCustomRole: async (role) => {
     const newRole = { ...role, id: generateUUID() };
     set(state => ({ customRoles: [...state.customRoles, newRole] }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.addCustomRole(newRole);
+    }
     get().addAlert({ message: `Role ${newRole.name} established.`, type: 'success' });
   },
   
@@ -2311,6 +2318,9 @@ export const useStore = create<AppState>()((set, get) => ({
     set(state => ({
       customRoles: state.customRoles.map(r => r.id === id ? { ...r, ...updates } : r)
     }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.updateCustomRole(id, updates);
+    }
     get().addAlert({ message: 'Role configurations updated.', type: 'info' });
   },
   
@@ -2318,12 +2328,18 @@ export const useStore = create<AppState>()((set, get) => ({
     set(state => ({
       customRoles: state.customRoles.filter(r => r.id !== id)
     }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.deleteCustomRole(id);
+    }
     get().addAlert({ message: 'Role permanently decommissioned.', type: 'warning' });
   },
   
   addWorkAssignment: async (assignment) => {
     const newAssignment = { ...assignment, id: generateUUID(), createdAt: new Date().toISOString() };
     set(state => ({ workAssignments: [...state.workAssignments, newAssignment] }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.addWorkAssignment(newAssignment);
+    }
     get().addAlert({ message: 'New work assignment deployed.', type: 'success' });
   },
   
@@ -2331,6 +2347,9 @@ export const useStore = create<AppState>()((set, get) => ({
     set(state => ({
       workAssignments: state.workAssignments.map(a => a.id === id ? { ...a, ...updates } : a)
     }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.updateWorkAssignment(id, updates);
+    }
     get().addAlert({ message: 'Work assignment updated.', type: 'info' });
   },
   
@@ -2340,58 +2359,71 @@ export const useStore = create<AppState>()((set, get) => ({
         a.id === id ? { ...a, status: 'archived' } : a
       )
     }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.updateWorkAssignment(id, { status: 'archived' });
+    }
     get().addAlert({ message: 'Work assignment recalled and archived.', type: 'warning' });
   },
 
-  // Phase 47: Site Protocols
-  siteProtocols: [
-    { id: 'proto-1', locationId: 'loc-1', title: 'Biometric Access', content: 'Staff must use the facial recognition terminal at Gate 4 for entry/exit protocol.' },
-    { id: 'proto-2', locationId: 'loc-1', title: 'Material Handling', content: 'All equipment must be inventoried before and after the operational shift.' },
-    { id: 'proto-3', locationId: 'loc-1', title: 'Safety Protocol', content: 'High-visibility vests are mandatory in all secured loading zones.' }
-  ],
   addSiteProtocol: async (protocol) => {
     const newProtocol = { ...protocol, id: generateUUID() };
     set(state => ({ siteProtocols: [...state.siteProtocols, newProtocol] }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.addSiteProtocol(newProtocol);
+    }
     get().addAlert({ message: 'Site protocol successfully codified.', type: 'success' });
   },
   deleteSiteProtocol: async (id) => {
     set(state => ({
       siteProtocols: state.siteProtocols.filter(p => p.id !== id)
     }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.deleteSiteProtocol(id);
+    }
     get().addAlert({ message: 'Site protocol decommissioned.', type: 'warning' });
   },
 
-  // Phase 51: Time Off
-  timeOffRequests: [
-    { id: '1', employeeId: 'emp-2', type: 'Sick', startDate: '2023-11-10', endDate: '2023-11-12', status: 'approved', reason: 'Fever', createdAt: new Date().toISOString() },
-    { id: '2', employeeId: 'emp-1', type: 'Vacation', startDate: '2023-12-20', endDate: '2023-12-25', status: 'pending', reason: 'Family vacation', createdAt: new Date().toISOString() },
-  ],
   submitTimeOffRequest: async (request) => {
     const newReq = { ...request, id: generateUUID(), status: 'pending', createdAt: new Date().toISOString() };
     set(state => ({ timeOffRequests: [newReq as TimeOffRequest, ...state.timeOffRequests] }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.submitTimeOffRequest(newReq);
+    }
     get().addAlert({ message: 'Absence request submitted for HR authorization.', type: 'info' });
   },
   updateTimeOffStatus: async (id, status, adminRemarks) => {
     set(state => ({
       timeOffRequests: state.timeOffRequests.map(r => r.id === id ? { ...r, status, adminRemarks } : r)
     }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.updateTimeOffStatus(id, { status, adminRemarks });
+    }
     get().addAlert({ message: `Absence request ${status.toUpperCase()}.`, type: 'success' });
   },
-  updateAttendanceRecord: (id, updates) => {
+  updateAttendanceRecord: async (id, updates) => {
     set(state => ({
       attendanceRecords: state.attendanceRecords.map(r => r.id === id ? { ...r, ...updates } : r)
     }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.updateAttendanceRecord(id, updates);
+    }
     get().addAlert({ message: 'Punch register heavily modified.', type: 'warning' });
   },
-  deleteAttendanceRecord: (id) => {
+  deleteAttendanceRecord: async (id) => {
     set(state => ({
       attendanceRecords: state.attendanceRecords.filter(r => r.id !== id)
     }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.deleteAttendanceRecord(id);
+    }
     get().addAlert({ message: 'Timesheet log violently expunged from database.', type: 'error' });
   },
-  createManualTimesheet: (record) => {
+  createManualTimesheet: async (record) => {
     const newRecord = { ...record, id: generateUUID() };
     set(state => ({ attendanceRecords: [newRecord as AttendanceRecord, ...state.attendanceRecords] }));
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.submitAttendance(newRecord);
+    }
     get().addAlert({ message: 'Supervisor-originated manual shift shift entry accepted.', type: 'info' });
   }
 }));
