@@ -38,15 +38,20 @@ const ClientLayout: React.FC = () => {
     const handleResize = () => {
       const mobile = window.innerWidth <= 768;
       setIsMobile(mobile);
-      setSidebarOpen(!mobile);
+      if (mobile) setSidebarOpen(false);
+      else setSidebarOpen(true);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
-    if (isMobile && sidebarOpen) setSidebarOpen(false);
-  }, [location.pathname, isMobile]);
+    // Standard approach for closing sidebar on navigation in mobile
+    if (isMobile && sidebarOpen) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname]); 
+
 
   const handleLogout = () => {
     logout();

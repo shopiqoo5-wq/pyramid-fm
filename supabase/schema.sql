@@ -407,18 +407,218 @@ FOR EACH ROW
 EXECUTE PROCEDURE public.fire_webhook_on_order();
 
 -- =========================================================================
--- 8. STORAGE BUCKETS (PURCHASE ORDERS)
+-- 9. MISSION-CRITICAL AUTOMATION (TRIGGERS)
 -- =========================================================================
 
--- Note: The following requires the Supabase storage schema.
--- It attempts to insert the purchase_orders bucket if it exists.
-DO $$
+-- A. AUTH SYNC: Create public.users profile on signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'storage' AND tablename = 'buckets') THEN
-        INSERT INTO storage.buckets (id, name, public) 
-        VALUES ('purchase_orders', 'purchase_orders', true)
-        ON CONFLICT (id) DO NOTHING;
+  INSERT INTO public.users (id, name, email, role)
+  VALUES (
+    new.id, 
+    COALESCE(new.raw_user_meta_data->>'name', 'New User'), 
+    new.email, 
+    COALESCE((new.raw_user_meta_data->>'role')::user_role, 'client_staff')
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- B. INVENTORY DEDUCTION: Update stock on order pack/dispatch
+CREATE OR REPLACE FUNCTION public.process_inventory_on_order()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- If status changes to 'packed' or 'dispatched', deduct inventory
+  IF (NEW.status IN ('packed', 'dispatched') AND OLD.status = 'approved') THEN
+    UPDATE public.inventory i
+    SET quantity = i.quantity - oi.quantity
+    FROM public.order_items oi
+    WHERE oi.order_id = NEW.id 
+    AND i.product_id = oi.product_id;
+    
+    -- Log Activity
+    INSERT INTO public.audit_logs (user_id, action, details)
+    VALUES (auth.uid(), 'inventory_deduction', jsonb_build_object('order_id', NEW.id, 'status', NEW.status));
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER on_order_status_inventory
+  AFTER UPDATE OF status ON public.orders
+  FOR EACH ROW EXECUTE PROCEDURE public.process_inventory_on_order();
+
+-- C. CREDIT VALIDATION: Check available credit before order creation
+CREATE OR REPLACE FUNCTION public.validate_company_credit()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_available_credit DECIMAL(12, 2);
+BEGIN
+    SELECT available_credit INTO v_available_credit 
+    FROM public.companies 
+    WHERE id = NEW.company_id;
+
+    IF v_available_credit < NEW.net_amount THEN
+        RAISE EXCEPTION 'Insufficient credit for this transaction. Required: %, Available: %', NEW.net_amount, v_available_credit;
     END IF;
-END $$;
+
+    -- Update available credit
+    UPDATE public.companies 
+    SET available_credit = available_credit - NEW.net_amount 
+    WHERE id = NEW.company_id;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER before_order_insert_credit
+  BEFORE INSERT ON public.orders
+  FOR EACH ROW EXECUTE PROCEDURE public.validate_company_credit();
+
+-- =========================================================================
+-- 10. EXPANDED RLS POLICIES
+-- =========================================================================
+
+-- LOCATIONS: Users see locations for their company
+CREATE POLICY "Users view own locations" ON public.locations
+  FOR SELECT USING ( company_id = (SELECT company_id FROM public.users WHERE id = auth.uid()) );
+
+-- INVENTORY: Admins full access, others read-only for eligible products
+CREATE POLICY "Admins full access inventory" ON public.inventory
+  FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+
+CREATE POLICY "Users read relevant inventory" ON public.inventory
+  FOR SELECT USING ( product_id IN (SELECT id FROM public.products) );
+
+-- INVOICES: Users view own company invoices
+CREATE POLICY "Users view own company invoices" ON public.invoices
+  FOR SELECT USING ( order_id IN (SELECT id FROM public.orders) );
+
+-- WEBHOOKS: Admin only
+ALTER TABLE public.webhooks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admins only webhooks" ON public.webhooks
+  FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+
+-- =========================================================================
+-- 11. RPC FUNCTIONS
+-- =========================================================================
+
+-- Atomic Inventory Increment/Decrement
+CREATE OR REPLACE FUNCTION public.increment_inventory(p_id UUID, w_id UUID, delta INTEGER)
+RETURNS void AS $$
+BEGIN
+  INSERT INTO public.inventory (product_id, warehouse_id, quantity)
+  VALUES (p_id, w_id, delta)
+  ON CONFLICT (product_id, warehouse_id)
+  DO UPDATE SET quantity = public.inventory.quantity + delta;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
+-- =========================================================================
+-- 12. ENTERPRISE MODULES (CONTRACTS, SUPPORT, WORKFORCE)
+-- =========================================================================
+
+-- CONTRACTS
+CREATE TABLE public.contracts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+    type TEXT NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    status TEXT NOT NULL,
+    value DECIMAL(12, 2),
+    document_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- SUPPORT TICKETS
+CREATE TABLE public.support_tickets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    custom_id TEXT UNIQUE NOT NULL,
+    company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES public.users(id),
+    category TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    description TEXT NOT NULL,
+    priority TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'Open',
+    assigned_to UUID REFERENCES public.users(id),
+    sentiment_score DECIMAL(3, 2),
+    related_order_id UUID REFERENCES public.orders(id),
+    related_location_id UUID REFERENCES public.locations(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- TICKET MESSAGES
+CREATE TABLE public.ticket_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    ticket_id UUID NOT NULL REFERENCES public.support_tickets(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES public.users(id),
+    message TEXT NOT NULL,
+    is_staff BOOLEAN DEFAULT FALSE,
+    image_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- WORKFORCE: ATTENDANCE
+CREATE TABLE public.attendance_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    employee_id UUID NOT NULL, -- Logical ID (or linked to users)
+    location_id UUID REFERENCES public.locations(id),
+    type TEXT NOT NULL, -- 'in', 'out'
+    photo_url TEXT,
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
+    check_in TIMESTAMP WITH TIME ZONE,
+    check_out TIMESTAMP WITH TIME ZONE,
+    status TEXT DEFAULT 'pending',
+    metadata JSONB DEFAULT '{}',
+    admin_remarks TEXT,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- APP EXCEPTIONS & FRAUD
+CREATE TABLE public.app_exceptions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    description TEXT NOT NULL,
+    related_entity_id TEXT,
+    status TEXT DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE public.fraud_flags (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.users(id),
+    company_id UUID REFERENCES public.companies(id),
+    reason TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    status TEXT DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS for all new tables
+ALTER TABLE public.contracts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ticket_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_exceptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fraud_flags ENABLE ROW LEVEL SECURITY;
+
+-- Basic RLS Policies (Admins only for most, users read their own)
+CREATE POLICY "Admins full access contracts" ON public.contracts FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+CREATE POLICY "Users view company contracts" ON public.contracts FOR SELECT USING ( company_id = (SELECT company_id FROM public.users WHERE id = auth.uid()) );
+
+CREATE POLICY "Users manage own tickets" ON public.support_tickets FOR ALL USING ( user_id = auth.uid() );
+CREATE POLICY "Admins full access tickets" ON public.support_tickets FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+
+CREATE POLICY "Admins only exceptions" ON public.app_exceptions FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../../store';
 import { Card, Badge } from '../../components/ui';
 import { 
@@ -16,17 +16,17 @@ import './Dashboard.css';
 const AttendanceReport: React.FC = () => {
   const { locations, attendanceRecords, employees } = useStore((state: any) => state);
 
-  // Purity Fix: Pre-calculate random values for chart and map
-  const chartRandomHeights = useMemo(() => 
-    Array.from({ length: 24 }).map((_, i) => 25 + Math.sin(i / 2.5) * 40 + Math.random() * 25), []
+  // Purity Fix: Generate stable random values once
+  const [chartRandomHeights] = useState(() => 
+    Array.from({ length: 24 }).map((_, i) => 25 + Math.sin(i / 2.5) * 40 + Math.random() * 25)
   );
 
-  const mapData = useMemo(() => 
+  const [mapData] = useState(() => 
     Array.from({ length: 25 }).map((_, i) => ({
       intensity: Math.random(),
       duration: 3 + Math.random() * 2,
       delay: i * 0.1
-    })), []
+    }))
   );
 
   return (

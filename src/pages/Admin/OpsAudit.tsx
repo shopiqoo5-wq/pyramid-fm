@@ -7,15 +7,14 @@ import {
   LuTriangle, LuRefreshCw, LuUser, LuClock, LuShieldCheck,
   LuDownload, LuUsers, LuActivity, LuInfo
 } from 'react-icons/lu';
-import { Card, Table, Button, Badge } from '../../components/ui';
-import { Modal } from '../../components/ui/Modal';
+import { Card, Table, Button, Badge, Modal } from '../../components/ui';
 import './OpsAudit.css';
 
 const OpsAudit: React.FC = () => {
   const { 
     exceptions, fraudFlags, auditLogs, users, 
     resolveException, updateFraudStatus, addNotification, currentUser 
-  } = useStore();
+  } = useStore((state: any) => state);
 
   const [tab, setTab] = useState<'exceptions' | 'fraud' | 'ledger'>('exceptions');
   const [search, setSearch] = useState('');
@@ -26,23 +25,23 @@ const OpsAudit: React.FC = () => {
   const [isForensicModalOpen, setIsForensicModalOpen] = useState(false);
   const [selectedException, setSelectedException] = useState<AppException | null>(null);
 
-  const activeUserIds = Array.from(new Set(auditLogs.map(log => log.userId)));
+  const [now] = useState(() => Date.now());
 
-  const filteredExceptions = exceptions.filter(e => {
+  const activeUserIds = Array.from(new Set(auditLogs.map((log: any) => log.userId)));
+
+  const filteredExceptions = exceptions.filter((e: any) => {
     const matchSearch = e.description?.toLowerCase().includes(search.toLowerCase()) || e.type?.toLowerCase().includes(search.toLowerCase());
     const matchSeverity = severityFilter === 'all' || e.severity === severityFilter;
     return matchSearch && matchSeverity;
   });
 
-  const filteredFlags = fraudFlags.filter(f => {
+  const filteredFlags = fraudFlags.filter((f: any) => {
     return !search || f.reason?.toLowerCase().includes(search.toLowerCase()) || f.userId?.toLowerCase().includes(search.toLowerCase());
   });
 
-  const now = useMemo(() => Date.now(), []);
-
   const filteredLogs = useMemo(() => {
-    return auditLogs.filter(log => {
-      const user = users.find(u => u.id === log.userId);
+    return auditLogs.filter((log: any) => {
+      const user = users.find((u: any) => u.id === log.userId);
       const logDate = new Date(log.timestamp).getTime();
       const isWithinTimeframe = 
         timeframe === 'all' ? true :
@@ -63,9 +62,9 @@ const OpsAudit: React.FC = () => {
   const handleExport = () => {
     const csv = [
       ["Timestamp","User","Action","Details"],
-      ...filteredLogs.map(log => [
+      ...filteredLogs.map((log: any) => [
         new Date(log.timestamp).toISOString(), 
-        users.find(u => u.id === log.userId)?.name || log.userId, 
+        users.find((u: any) => u.id === log.userId)?.name || log.userId, 
         log.action, 
         log.details
       ])
@@ -76,10 +75,12 @@ const OpsAudit: React.FC = () => {
     a.click();
   };
 
-  const uniqueActions = Array.from(new Set(auditLogs.map(log => log.action))).sort();
+  const uniqueActions = Array.from(new Set(auditLogs.map((log: any) => log.action))).sort() as string[];
 
   const handleRefresh = () => {
-    addNotification({ userId: currentUser!.id, title: 'Cache Purged', message: 'Governance ledger re-indexed from cold storage.', type: 'success' });
+    if (currentUser) {
+      addNotification({ userId: currentUser.id, title: 'Cache Purged', message: 'Governance ledger re-indexed from cold storage.', type: 'success' });
+    }
   };
 
   const sevColor = (s: string) => ({ high: 'var(--danger)', medium: 'var(--warning)', low: 'var(--info)' }[s] || 'var(--text-muted)');
@@ -101,10 +102,10 @@ const OpsAudit: React.FC = () => {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
         {[
-          { label: 'Active Exceptions', value: exceptions.filter(e => e.status === 'active').length, color: 'var(--danger)', bg: 'var(--danger-bg)' },
-          { label: 'High Severity', value: exceptions.filter(e => e.severity === 'high').length, color: 'var(--danger)', bg: 'var(--danger-bg)' },
-          { label: 'Fraud Flags', value: fraudFlags.filter(f => f.riskLevel !== 'safe').length, color: 'var(--warning)', bg: 'var(--warning-bg)' },
-          { label: 'Resolved Today', value: exceptions.filter(e => e.status === 'resolved' && new Date(e.createdAt).toDateString() === new Date().toDateString()).length, color: 'var(--success)', bg: 'var(--success-bg)' },
+          { label: 'Active Exceptions', value: exceptions.filter((e: any) => e.status === 'active').length, color: 'var(--danger)', bg: 'var(--danger-bg)' },
+          { label: 'High Severity', value: exceptions.filter((e: any) => e.severity === 'high').length, color: 'var(--danger)', bg: 'var(--danger-bg)' },
+          { label: 'Fraud Flags', value: fraudFlags.filter((f: any) => f.riskLevel !== 'safe').length, color: 'var(--warning)', bg: 'var(--warning-bg)' },
+          { label: 'Resolved Today', value: exceptions.filter((e: any) => e.status === 'resolved' && new Date(e.createdAt).toDateString() === new Date().toDateString()).length, color: 'var(--success)', bg: 'var(--success-bg)' },
         ].map((stat, i) => (
           <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
             className="quick-stat lift"
@@ -157,7 +158,7 @@ const OpsAudit: React.FC = () => {
               <h3>No Exceptions Found</h3>
               <p>System is operating normally. No anomalies detected.</p>
             </div>
-          ) : filteredExceptions.map((exc, i) => (
+          ) : filteredExceptions.map((exc: any, i: number) => (
             <motion.div key={exc.id} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
               className="exception-card lift"
               style={{
@@ -200,7 +201,9 @@ const OpsAudit: React.FC = () => {
                       className="tag-btn active" 
                       onClick={() => {
                         resolveException(exc.id);
-                        addNotification({ userId: currentUser!.id, title: 'Exception Resolved', message: `Exception marks as resolved.`, type: 'success' });
+                        if (currentUser) {
+                          addNotification({ userId: currentUser.id, title: 'Exception Resolved', message: `Exception marks as resolved.`, type: 'success' });
+                        }
                       }}
                       style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'var(--success-bg)', color: 'var(--success)', borderColor: 'transparent' }}
                     >
@@ -222,7 +225,7 @@ const OpsAudit: React.FC = () => {
               <h3>System Secure</h3>
               <p>No fraud flags have been raised. All activity appears normal.</p>
             </div>
-          ) : filteredFlags.map((flag, i) => (
+          ) : filteredFlags.map((flag: any, i: number) => (
             <motion.div key={flag.id} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.04 }}
               className="fraud-flag-card lift"
               style={{
@@ -257,7 +260,9 @@ const OpsAudit: React.FC = () => {
                     className="tag-btn" 
                     onClick={() => {
                       updateFraudStatus(flag.id, 'blocked');
-                      addNotification({ userId: currentUser!.id, title: 'User Blocked', message: `Fraud flag escalated. User has been blocked.`, type: 'error' });
+                      if (currentUser) {
+                        addNotification({ userId: currentUser.id, title: 'User Blocked', message: `Fraud flag escalated. User has been blocked.`, type: 'error' });
+                      }
                     }}
                     style={{ fontSize: '0.75rem', flexShrink: 0, color: 'var(--danger)', borderColor: 'var(--danger-light)' }}
                   >
@@ -296,7 +301,7 @@ const OpsAudit: React.FC = () => {
                 <LuUsers size={14} className="text-muted" />
                 <select value={selectedUser} onChange={(e: any) => setSelectedUser(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', color: 'var(--text-main)', fontSize: '0.8rem', fontWeight: 700 }}>
                   <option value="all">Personnel: Any</option>
-                  {activeUserIds.map(id => <option key={id} value={id}>{users.find(u => u.id === id)?.name || id}</option>)}
+                  {activeUserIds.map((id: any) => <option key={id} value={id}>{users.find((u: any) => u.id === id)?.name || id}</option>)}
                 </select>
              </div>
 
@@ -310,7 +315,7 @@ const OpsAudit: React.FC = () => {
               { 
                 key: 'timestamp', 
                 header: 'TIMESTAMP', 
-                render: (r) => (
+                render: (r: any) => (
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>{new Date(r.timestamp).toLocaleDateString()}</span>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(r.timestamp).toLocaleTimeString()}</span>
@@ -320,20 +325,20 @@ const OpsAudit: React.FC = () => {
               { 
                 key: 'user', 
                 header: 'ACTOR', 
-                render: (r) => {
-                  const u = users.find(user => user.id === r.userId);
+                render: (r: any) => {
+                  const u = users.find((user: any) => user.id === r.userId);
                   return <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{u?.name || r.userId}</span>;
                 } 
               },
               { 
                 key: 'action', 
                 header: 'ACTION', 
-                render: (r) => <Badge variant={r.action.includes('delete') ? 'danger' : 'primary'} style={{ fontSize: '0.65rem' }}>{r.action.toUpperCase()}</Badge> 
+                render: (r: any) => <Badge variant={r.action.includes('delete') ? 'danger' : 'primary'} style={{ fontSize: '0.65rem' }}>{r.action.toUpperCase()}</Badge> 
               },
               { 
                 key: 'details', 
                 header: 'DESCRIPTION', 
-                render: (r) => <span style={{ opacity: 0.8, fontSize: '0.8rem' }}>{r.details}</span> 
+                render: (r: any) => <span style={{ opacity: 0.8, fontSize: '0.8rem' }}>{r.details}</span> 
               }
             ]} 
             data={filteredLogs}
@@ -358,12 +363,12 @@ const OpsAudit: React.FC = () => {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                <div className="info-block" style={{ padding: '1.5rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '20px' }}>
-                  <h5 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}><LuClock size={14} /> Propagation Time</h5>
+                  <h5 style={{ margin: '0 0 1rem 0', display: 'center', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}><LuClock size={14} /> Propagation Time</h5>
                   <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary)' }}>{new Date(selectedException.createdAt).toLocaleTimeString()}</p>
                   <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Initial burst detected via Gateway node</p>
                </div>
                <div className="info-block" style={{ padding: '1.5rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '20px' }}>
-                  <h5 style={{ margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}><LuActivity size={14} /> Risk Vector</h5>
+                  <h5 style={{ margin: '0 0 1rem 0', display: 'center', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}><LuActivity size={14} /> Risk Vector</h5>
                   <p style={{ margin: 0, fontSize: '1.25rem', fontWeight: 900, color: 'var(--danger)' }}>98.4% Confidence</p>
                   <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>Pattern matches known credential spray</p>
                </div>

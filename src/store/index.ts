@@ -11,8 +11,9 @@ import { sendTransactionalSMS, SMS_TEMPLATES } from '../utils/sms';
 import { EmailTemplates } from '../lib/emailNotifications';
 import { mockUsers, mockProducts, mockInventory, mockOrders, mockCompanies, mockBundles, mockPricing, mockEmployees, mockWorkReports, mockAttendance, mockReturnRequests, mockInventoryLogs } from '../mockData';
 import { secureToken, hashPassword, verifyPassword, sanitizeUser } from '../utils/security';
-import { snakeToCamel, camelToSnake, generateUUID } from '../lib/supabaseUtils';
+import { generateUUID } from '../lib/supabaseUtils';
 import { calculateIndianGST } from '../utils/gst';
+import { SupabaseService } from '../lib/supabaseService';
 
 interface CartItem {
   productId: string;
@@ -254,7 +255,7 @@ interface AppState {
 }
 
 
-import { supabase } from '../lib/supabase';
+
 
 export const useStore = create<AppState>()((set, get) => ({
   language: 'en',
@@ -304,16 +305,31 @@ export const useStore = create<AppState>()((set, get) => ({
 
   currentUser: null,
   login: async (companyIdentifier, userIdentifier, password) => {
-    // SEC-02: Try Supabase first (Simulated logic for multi-tenant)
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      // In a real Supabase setup, we'd join with companies or use a specific RPC
-      // For now, we'll mimic the logic using the local data check below
+    // 1. Try Supabase Auth
+    try {
+      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+        const client = (await import('../lib/supabase')).supabase;
+        const { data, error } = await client.auth.signInWithPassword({
+          email: userIdentifier,
+          password: password
+        });
+        if (error) throw error;
+        if (data.user) {
+          const profile = await SupabaseService.getCurrentUser();
+          if (profile) {
+            set({ currentUser: profile });
+            get().addAlert({ message: `Access Authorized: ${profile.name}`, type: 'success' });
+            return true;
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn('Supabase login failed, falling back to mock:', e.message);
     }
 
-    // Step 1: Identify the tenant scope
+    // 2. Fallback to mock logic (same as before)
     let targetCompanyId: string | undefined;
     const isSystemAdmin = companyIdentifier.toUpperCase() === 'SYSTEM' || !companyIdentifier;
-
     if (!isSystemAdmin) {
       const company = get().companies.find(c => 
         c.companyCode?.toUpperCase() === companyIdentifier.toUpperCase() || 
@@ -322,18 +338,12 @@ export const useStore = create<AppState>()((set, get) => ({
       if (!company) return false;
       targetCompanyId = company.id;
     }
-
-    // Step 2: Authenticate user within that scope
     const user = get().users.find((u) => {
       const matchesIdentifier = u.email === userIdentifier || u.username === userIdentifier;
-      if (isSystemAdmin) {
-        return matchesIdentifier && u.role === 'admin';
-      }
+      if (isSystemAdmin) return matchesIdentifier && u.role === 'admin';
       return matchesIdentifier && u.companyId === targetCompanyId;
     });
-
     if (user && await verifyPassword(password, user.password || '')) {
-      // SEC-11: store user without password field
       set({ currentUser: sanitizeUser(user) as User });
       get().addAlert({ message: `Access Authorized: ${user.name}${isSystemAdmin ? ' (System)' : ''}`, type: 'success' });
       return true;
@@ -342,79 +352,34 @@ export const useStore = create<AppState>()((set, get) => ({
   },
   logout: async () => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.auth.signOut();
+      await (get() as any)._supabaseLogout();
     }
     get().addAlert({ message: 'Logged out successfully.', type: 'info' });
     set({ currentUser: null, cart: [] });
   },
+  _supabaseLogout: async () => {
+    // Hidden helper since we don't want to expose supabase client too much
+    const client = (await import('../lib/supabase')).supabase;
+    await client.auth.signOut();
+  },
 
   initSupabase: async () => {
-    // Aggressively fetch everything if connected
     if (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) return;
     try {
-      const results = await Promise.all([
-        supabase.from('products').select('*'),
-        supabase.from('companies').select('*'),
-        supabase.from('orders').select('*, items:order_items(*)'),
-        supabase.from('users').select('*'),
-        supabase.from('locations').select('*'),
-        supabase.from('inventory').select('*'),
-        supabase.from('client_pricing').select('*'),
-        supabase.from('webhooks').select('*'),
-        supabase.from('product_bundles').select('*, items:bundle_items(*)'),
-        supabase.from('contracts').select('*'),
-        supabase.from('budgets').select('*'),
-        supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(200),
-        supabase.from('favorites').select('*'),
-        supabase.from('recurring_orders').select('*, items:recurring_order_items(*)'),
-        supabase.from('return_requests').select('*'),
-        supabase.from('support_tickets').select('*'),
-        supabase.from('attendance_records').select('*'),
-        supabase.from('app_exceptions').select('*'),
-        supabase.from('fraud_flags').select('*'),
-        supabase.from('compliance_docs').select('*'),
-        supabase.from('batches').select('*'),
-        supabase.from('global_settings').select('*').eq('id', 'system').single()
+      const [products, companies, orders, locations, inventory] = await Promise.all([
+        SupabaseService.getProducts(),
+        SupabaseService.getCompanies(),
+        SupabaseService.getOrders(),
+        SupabaseService.getLocations(),
+        SupabaseService.getInventory()
       ]);
       
-      const [
-        productsRes, companiesRes, ordersRes, usersRes, locationsRes, inventoryRes,
-        clientPricingRes, webhooksRes, bundlesRes, contractsRes, budgetsRes,
-        auditLogsRes, favoritesRes, recurringOrdersRes, returnsRes, ticketsRes,
-        attendanceRes, exceptionsRes, fraudRes, complianceRes, batchesRes, settingsRes
-      ] = results;
-
-      if (productsRes.data) set({ products: snakeToCamel(productsRes.data) });
-      if (companiesRes.data) set({ companies: snakeToCamel(companiesRes.data) });
-      if (ordersRes.data) set({ orders: snakeToCamel(ordersRes.data) });
-      if (usersRes.data) set({ users: snakeToCamel(usersRes.data).map((u: any) => sanitizeUser(u)) as User[] });
-      if (locationsRes.data) set({ locations: snakeToCamel(locationsRes.data) });
-      if (inventoryRes.data) set({ inventory: snakeToCamel(inventoryRes.data) });
-      if (clientPricingRes.data) set({ clientPricing: snakeToCamel(clientPricingRes.data) });
-      if (webhooksRes.data) set({ webhooks: snakeToCamel(webhooksRes.data) });
-      if (bundlesRes.data) set({ productBundles: snakeToCamel(bundlesRes.data) });
-      if (contractsRes.data) set({ contracts: snakeToCamel(contractsRes.data) });
-      if (budgetsRes.data) set({ budgets: snakeToCamel(budgetsRes.data) });
-      if (auditLogsRes.data) set({ auditLogs: snakeToCamel(auditLogsRes.data) });
-      if (favoritesRes.data) set({ favorites: snakeToCamel(favoritesRes.data) });
-      if (recurringOrdersRes.data) set({ recurringOrders: snakeToCamel(recurringOrdersRes.data) });
-      if (returnsRes.data) set({ returnRequests: snakeToCamel(returnsRes.data) });
-      if (ticketsRes.data) set({ supportTickets: snakeToCamel(ticketsRes.data) });
-      if (attendanceRes.data) set({ attendanceRecords: snakeToCamel(attendanceRes.data) });
-      if (exceptionsRes.data) set({ exceptions: snakeToCamel(exceptionsRes.data) });
-      if (fraudRes.data) set({ fraudFlags: snakeToCamel(fraudRes.data) });
-      if (complianceRes.data) set({ complianceDocs: snakeToCamel(complianceRes.data) });
-      if (batchesRes.data) set({ batches: snakeToCamel(batchesRes.data) });
+      set({ products, companies, orders, locations, inventory });
       
-      if (settingsRes?.data) {
-        const s = snakeToCamel(settingsRes.data);
-        set(state => ({
-          settings: {
-            ...state.settings,
-            ...s
-          }
-        }));
-      }
+      // If we have a session, set current user
+      const currentUser = await SupabaseService.getCurrentUser();
+      if (currentUser) set({ currentUser });
+
     } catch (err) {
       console.error('Failed to init Supabase data', err);
     }
@@ -600,16 +565,7 @@ export const useStore = create<AppState>()((set, get) => ({
       createdAt: new Date().toISOString()
     };
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      supabase.from('return_requests').insert({
-        id: newReturn.id,
-        order_id: newReturn.orderId,
-        company_id: newReturn.companyId,
-        reason: newReturn.reason,
-        status: newReturn.status,
-        image_url: newReturn.imageUrl,
-        requested_by: newReturn.requestedBy,
-        items: newReturn.items
-      }).then();
+      SupabaseService.createReturnRequest(newReturn).then();
     }
     get().addAlert({ message: 'Return request submitted successfully!', type: 'success' });
     return { returnRequests: [newReturn, ...state.returnRequests] };
@@ -664,7 +620,7 @@ export const useStore = create<AppState>()((set, get) => ({
     }
 
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      supabase.from('return_requests').update({ status }).eq('id', id).then();
+      SupabaseService.updateReturnStatus(id, status).then();
     }
 
     return {
@@ -728,7 +684,7 @@ export const useStore = create<AppState>()((set, get) => ({
     addAlert({ message: `Order ${order.customId} status updated to ${status}.`, type: 'success' });
 
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('orders').update({ status }).eq('id', orderId);
+      await SupabaseService.updateOrderStatus(orderId, status);
     }
 
     set((state) => ({
@@ -761,103 +717,95 @@ export const useStore = create<AppState>()((set, get) => ({
     const baseOrderId = `ORD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const splitNeeded = Object.keys(warehouseGroups).length > 1;
 
-    for (const [wId, items] of Object.entries(warehouseGroups)) {
-      if (!items) continue;
-      const { products } = get();
-      const index = newOrders.length;
-      const sourceState = 'MH'; 
-      const destState = location?.state || 'MH';
+    try {
+      for (const [wId, items] of Object.entries(warehouseGroups)) {
+        if (!items) continue;
+        const { products } = get();
+        const index = newOrders.length;
+        const sourceState = 'MH'; 
+        const destState = location?.state || 'MH';
 
-      // Re-calculate totals per split order
-      let netAmount = 0;
-      let gstAmount = 0;
-      let totalAmount = 0;
+        // Re-calculate totals per split order
+        let netAmount = 0;
+        let gstAmount = 0;
+        let totalAmount = 0;
 
-      items.forEach(item => {
-        const product = products.find(p => p.id === item.productId);
-        const gstResult = calculateIndianGST(item.unitPrice * item.quantity, sourceState, destState, product?.gstRate || 18);
-        netAmount += gstResult.netAmount;
-        gstAmount += gstResult.totalGst;
-        totalAmount += gstResult.baseAmount;
-      });
+        items.forEach(item => {
+          const product = products.find(p => p.id === item.productId);
+          const gstResult = calculateIndianGST(item.unitPrice * item.quantity, sourceState, destState, product?.gstRate || 18);
+          netAmount += gstResult.netAmount;
+          gstAmount += gstResult.totalGst;
+          totalAmount += gstResult.baseAmount;
+        });
 
-      const suffix = splitNeeded ? `-${String.fromCharCode(65 + index)}` : '';
-      const company = companies.find(c => c.id === orderStart.companyId);
-      const threshold = company?.approvalThreshold || 0;
-      const budget = location?.monthlyBudget || 0;
-      const currentSpend = location?.currentMonthSpend || 0;
-      
-      const isOverThreshold = threshold > 0 && netAmount > threshold;
-      const isOverBudget = budget > 0 && (currentSpend + netAmount) > budget;
-      const isOverLimit = !!(company?.creditLimit && netAmount > (company.availableCredit || 0));
+        const suffix = splitNeeded ? `-${String.fromCharCode(65 + index)}` : '';
+        const company = companies.find(c => c.id === orderStart.companyId);
+        const threshold = company?.approvalThreshold || 0;
+        const budget = location?.monthlyBudget || 0;
+        const currentSpend = location?.currentMonthSpend || 0;
+        
+        const isOverThreshold = threshold > 0 && netAmount > threshold;
+        const isOverBudget = budget > 0 && (currentSpend + netAmount) > budget;
+        const isOverLimit = !!(company?.creditLimit && netAmount > (company.availableCredit || 0));
 
-      const orderStatus: Order['status'] = (isOverThreshold || isOverBudget || isOverLimit || netAmount > 50000) 
-        ? 'pending_approval' 
-        : (orderStart.status || 'pending');
+        const orderStatus: Order['status'] = (isOverThreshold || isOverBudget || isOverLimit || netAmount > 50000) 
+          ? 'pending_approval' 
+          : (orderStart.status || 'pending');
 
-      // Exception Handling
-      if (netAmount > 25000) {
-        triggerException({
-          type: 'Order Spike',
-          severity: netAmount > 100000 ? 'high' : 'low',
-          description: `${netAmount > 100000 ? 'Extremely large order' : 'Order spike'} of ₹${netAmount.toLocaleString()} from ${company?.name || orderStart.companyId}.`,
-          relatedEntityId: baseOrderId
+        // Exception Handling
+        if (netAmount > 25000) {
+          triggerException({
+            type: 'Order Spike',
+            severity: netAmount > 100000 ? 'high' : 'low',
+            description: `${netAmount > 100000 ? 'Extremely large order' : 'Order spike'} of ₹${netAmount.toLocaleString()} from ${company?.name || orderStart.companyId}.`,
+            relatedEntityId: baseOrderId
+          });
+        }
+
+        const newOrd: Order = {
+          ...orderStart,
+          id: generateUUID(),
+          customId: `${baseOrderId}${suffix}`,
+          status: orderStatus,
+          createdAt: new Date().toISOString(),
+          items: items.map(it => ({ ...it, id: generateUUID() })),
+          totalAmount,
+          gstAmount,
+          netAmount,
+          warehouseId: wId,
+        } as Order;
+
+        // Persist to Supabase if config is live
+        if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+          await SupabaseService.placeOrder(newOrd);
+        }
+
+        newOrders.push(newOrd);
+
+        // confirmation email
+        const user = users.find(u => u.id === orderStart.placedBy);
+        if (user) EmailTemplates.orderConfirmation(user.email, newOrd.customId, `₹${newOrd.netAmount}`).then();
+      }
+
+      set((state) => ({ 
+        orders: [...newOrders, ...state.orders],
+        cart: []
+      }));
+
+      newOrders.forEach(o => processInventoryMovement(o.id, 'pending', o.status));
+
+      if (splitNeeded) {
+        addNotification({
+          userId: orderStart.placedBy || 'u1',
+          title: 'Order Split',
+          message: `Your order was split into ${newOrders.length} shipments for faster delivery.`,
+          type: 'info'
         });
       }
-
-      const newOrd: Order = {
-        ...orderStart,
-        id: generateUUID(),
-        customId: `${baseOrderId}${suffix}`,
-        status: orderStatus,
-        createdAt: new Date().toISOString(),
-        items: items.map(it => ({ ...it, id: generateUUID() })),
-        totalAmount,
-        gstAmount,
-        netAmount,
-        warehouseId: wId,
-        approvalChain: []
-      } as Order;
-
-      newOrders.push(newOrd);
-
-      // confirmation email
-      const user = users.find(u => u.id === orderStart.placedBy);
-      if (user) EmailTemplates.orderConfirmation(user.email, newOrd.customId, `₹${newOrd.netAmount}`).then();
-    }
-
-    set((state) => ({ 
-      orders: [...newOrders, ...state.orders],
-      cart: []
-    }));
-
-    newOrders.forEach(o => processInventoryMovement(o.id, 'pending', o.status));
-
-    if (splitNeeded) {
-      addNotification({
-        userId: orderStart.placedBy || 'u1',
-        title: 'Order Split',
-        message: `Your order was split into ${newOrders.length} shipments for faster delivery.`,
-        type: 'info'
-      });
-    }
-
-    addAlert({ message: 'Order placed successfully!', type: 'success' });
-
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      for (const order of newOrders) {
-        const { items, ...orderData } = order;
-        const { data: dbOrder, error: orderErr } = await supabase
-          .from('orders')
-          .insert(camelToSnake(orderData))
-          .select()
-          .single();
-
-        if (!orderErr && dbOrder) {
-          const dbItems = items.map(item => camelToSnake({ ...item, orderId: dbOrder.id }));
-          await supabase.from('order_items').insert(dbItems);
-        }
-      }
+      
+      addAlert({ message: 'Order request submitted successfully.', type: 'success' });
+    } catch (err: any) {
+      addAlert({ message: `Order placement failed: ${err.message}`, type: 'error' });
     }
   },
 
@@ -865,7 +813,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
     updateUserFaceImage: async (userId, imageUrl) => {
       if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-        await supabase.from('users').update({ face_image_url: imageUrl }).eq('id', userId);
+        await SupabaseService.updateUserFaceImage(userId, imageUrl);
       }
       set(state => ({
         users: state.users.map(u => u.id === userId ? { ...u, faceImageUrl: imageUrl } : u)
@@ -923,24 +871,95 @@ export const useStore = create<AppState>()((set, get) => ({
   })),
 
   addProduct: async (productStart) => {
-    const newProduct = { ...productStart, id: generateUUID() };
-    set((state) => ({ products: [newProduct, ...state.products] }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('products').insert(camelToSnake(newProduct));
+    try {
+      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+        const product = await SupabaseService.addProduct(productStart);
+        set((state) => ({ products: [product, ...state.products] }));
+      } else {
+        set((state) => ({ products: [{ ...productStart, id: generateUUID() } as Product, ...state.products] }));
+      }
+      get().addAlert({ message: 'Product successfully indexed.', type: 'success' });
+    } catch (err: any) {
+      get().addAlert({ message: `Failed to add product: ${err.message}`, type: 'error' });
     }
   },
 
   updateProduct: async (id, updates) => {
-    set((state) => ({ products: state.products.map(p => p.id === id ? { ...p, ...updates } : p) }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('products').update(camelToSnake(updates)).eq('id', id);
+    try {
+      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+        await SupabaseService.updateProduct(id, updates);
+      }
+      set((state) => ({ products: state.products.map(p => p.id === id ? { ...p, ...updates } : p) }));
+      get().addAlert({ message: 'Product record updated.', type: 'info' });
+    } catch (err: any) {
+      get().addAlert({ message: `Update failed: ${err.message}`, type: 'error' });
     }
   },
 
   deleteProduct: async (id) => {
-    set((state) => ({ products: state.products.filter(p => p.id !== id) }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('products').delete().eq('id', id);
+    try {
+      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+        await SupabaseService.deleteProduct(id);
+      }
+      set((state) => ({ products: state.products.filter(p => p.id !== id) }));
+      get().addAlert({ message: 'Product decommissioned from catalog.', type: 'warning' });
+    } catch (err: any) {
+      get().addAlert({ message: `Deletion failed: ${err.message}`, type: 'error' });
+    }
+  },
+
+  addCompany: async (companyStart) => {
+    try {
+      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+        const company = await SupabaseService.addCompany(companyStart);
+        set((state) => ({ companies: [company, ...state.companies] }));
+      } else {
+        set((state) => ({ companies: [{ ...companyStart, id: generateUUID() } as Company, ...state.companies] }));
+      }
+      get().addAlert({ message: 'Company registry finalized.', type: 'success' });
+    } catch (err: any) {
+      get().addAlert({ message: `Failed to add company: ${err.message}`, type: 'error' });
+    }
+  },
+
+  updateCompany: async (id, updates) => {
+    try {
+      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+        await SupabaseService.updateCompany(id, updates);
+      }
+      set((state) => ({ companies: state.companies.map(c => c.id === id ? { ...c, ...updates } : c) }));
+      get().addAlert({ message: 'Company governance updated.', type: 'info' });
+    } catch (err: any) {
+      get().addAlert({ message: `Update failed: ${err.message}`, type: 'error' });
+    }
+  },
+
+  deleteCompany: async (id) => {
+    try {
+      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+        await SupabaseService.deleteCompany(id);
+      }
+      set((state) => ({ companies: state.companies.filter(c => c.id !== id) }));
+      get().addAlert({ message: 'Company record expunged.', type: 'warning' });
+    } catch (err: any) {
+      get().addAlert({ message: `Deletion failed: ${err.message}`, type: 'error' });
+    }
+  },
+
+  addUser: async (userStart) => {
+    try {
+      const { username, password, ...rest } = userStart;
+      const hashedPassword = await hashPassword(password || 'pyramid123');
+      const newUser = { ...rest, id: generateUUID(), username, password: hashedPassword, status: 'active' as const };
+      
+      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+         await SupabaseService.addUser(newUser);
+      }
+
+      set((state) => ({ users: [sanitizeUser(newUser) as User, ...state.users] }));
+      get().addAlert({ message: 'User identity provisioned.', type: 'success' });
+    } catch (err: any) {
+      get().addAlert({ message: `Creation failed: ${err.message}`, type: 'error' });
     }
   },
 
@@ -950,17 +969,7 @@ export const useStore = create<AppState>()((set, get) => ({
     logAction('admin', 'create_bundle', `Created new bundle: ${bundleStart.name} (${bundleStart.sku})`);
     
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      const { items, ...bundleData } = newBundle;
-      const { data: dbBundle, error: bundleErr } = await supabase
-        .from('product_bundles')
-        .insert(camelToSnake(bundleData))
-        .select()
-        .single();
-        
-      if (!bundleErr && dbBundle) {
-        const dbItems = items.map(item => camelToSnake({ ...item, bundleId: dbBundle.id }));
-        await supabase.from('bundle_items').insert(dbItems);
-      }
+      await SupabaseService.addProductBundle(newBundle);
     }
 
     set((state) => ({ productBundles: [newBundle, ...state.productBundles] }));
@@ -972,7 +981,7 @@ export const useStore = create<AppState>()((set, get) => ({
     logAction('admin', 'update_bundle', `Updated bundle: ${bundle?.name || id}`);
     
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('product_bundles').update(camelToSnake(updates)).eq('id', id);
+      await SupabaseService.updateProductBundle(id, updates);
     }
 
     set((state) => ({
@@ -986,68 +995,13 @@ export const useStore = create<AppState>()((set, get) => ({
     logAction('admin', 'delete_bundle', `Deleted bundle: ${bundle?.name || id}`);
     
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('product_bundles').delete().eq('id', id);
+      await SupabaseService.deleteProductBundle(id);
     }
 
     set((state) => ({
       productBundles: state.productBundles.filter(b => b.id !== id)
     }));
   },
-
-  addCompany: async (companyStart) => {
-    const newCompany = { ...companyStart, id: generateUUID() };
-    get().logAction('admin', 'create_company', `Created new company: ${newCompany.name}`);
-    
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('companies').insert(camelToSnake(newCompany));
-    }
-
-    set((state) => ({ companies: [newCompany, ...state.companies] }));
-  },
-
-  updateCompany: async (id, updates) => {
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('companies').update(camelToSnake(updates)).eq('id', id);
-    }
-    set((state) => ({ companies: state.companies.map(c => c.id === id ? { ...c, ...updates } : c) }));
-  },
-
-  deleteCompany: async (id) => {
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('companies').delete().eq('id', id);
-    }
-    set((state) => ({ companies: state.companies.filter(c => c.id !== id) }));
-  },
-
-  addUser: async (userStart) => {
-    const { companies, logAction } = get();
-    const username = userStart.username || (userStart.email.split('@')[0] + Math.floor(100 + Math.random() * 900));
-    const plainPassword = userStart.password || secureToken(8);
-    const hashedPassword = await hashPassword(plainPassword);
-
-    const newUser = {
-      ...userStart,
-      id: generateUUID(),
-      username,
-      password: hashedPassword,
-      status: 'active' as const
-    };
-
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('users').insert(camelToSnake(newUser));
-    }
-
-    set((state) => ({
-      users: [...state.users, sanitizeUser(newUser) as User]
-    }));
-
-    logAction('admin', 'create_user', `Created account for ${newUser.name}.`);
-
-    const company = companies.find(c => c.id === newUser.companyId);
-    EmailTemplates.newClientWelcome(newUser.email, company?.name || 'Pyramid FM Partner', newUser.name, plainPassword).then();
-  },
-
-
 
   processInventoryMovement: (orderId, fromStatus, toStatus) => {
     const order = get().orders.find(o => o.id === orderId);
@@ -1150,7 +1104,7 @@ export const useStore = create<AppState>()((set, get) => ({
     }
 
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('users').update(camelToSnake(updates)).eq('id', id);
+      await SupabaseService.updateUser(id, updates);
     }
     set((state) => ({
       users: state.users.map(u => u.id === id ? { ...u, ...updates } : u)
@@ -1184,7 +1138,7 @@ export const useStore = create<AppState>()((set, get) => ({
     logAction('admin', 'delete_user', `Removed user: ${user.name} (${user.email})`);
     
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('users').delete().eq('id', id);
+      await SupabaseService.deleteUser(id);
     }
 
     set((state) => ({
@@ -1195,14 +1149,16 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   addLocation: async (locationStart) => {
-    const newLoc = { ...locationStart, id: generateUUID() };
     const company = get().companies.find(c => c.id === locationStart.companyId);
-    get().logAction('admin', 'create_location', `Added location ${newLoc.name} for ${company?.name || locationStart.companyId}`);
+    get().logAction('admin', 'create_location', `Added location ${locationStart.name} for ${company?.name || locationStart.companyId}`);
     
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('locations').insert(camelToSnake(newLoc));
+      const newLoc = await SupabaseService.addLocation(locationStart);
+      set((state) => ({ locations: [newLoc, ...state.locations] }));
+    } else {
+      const newLoc = { ...locationStart, id: generateUUID() };
+      set((state) => ({ locations: [newLoc, ...state.locations] }));
     }
-    set((state) => ({ locations: [newLoc, ...state.locations] }));
   },
 
   addContract: async (contractStart) => {
@@ -1210,32 +1166,18 @@ export const useStore = create<AppState>()((set, get) => ({
     const company = companies.find(c => c.id === contractStart.companyId);
     logAction('admin', 'create_contract', `Established ${contractStart.type} contract for ${company?.name || 'unknown client'}.`);
     
-    const endDateMs = new Date(contractStart.endDate).getTime();
-    const nowMs = Date.now();
-    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-    
-    let status: Contract['status'] = 'Active';
-    if (endDateMs < nowMs) status = 'Expired';
-    else if (endDateMs - nowMs < thirtyDaysMs) status = 'Expiring Soon';
-
-    const newContract: Contract = {
-      ...contractStart,
-      id: generateUUID(),
-      status
-    };
-
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('contracts').insert(camelToSnake(newContract));
+      const newContract = await SupabaseService.addContract(contractStart) as Contract;
+      set(state => ({ contracts: [newContract, ...state.contracts] }));
+    } else {
+      const newContract: Contract = { ...contractStart, id: generateUUID(), status: 'Active' };
+      set(state => ({ contracts: [newContract, ...state.contracts] }));
     }
-
-    set(state => ({
-      contracts: [newContract, ...state.contracts]
-    }));
   },
 
   deleteLocation: async (id) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('locations').delete().eq('id', id);
+      await SupabaseService.deleteLocation(id);
     }
     set((state) => ({
       locations: state.locations.filter(l => l.id !== id)
@@ -1244,7 +1186,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   updateLocation: async (id, updates) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('locations').update(camelToSnake(updates)).eq('id', id);
+      await SupabaseService.updateLocation(id, updates);
     }
     set((state) => ({
       locations: state.locations.map(l => l.id === id ? { ...l, ...updates } : l)
@@ -1253,33 +1195,21 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   updateContract: async (id, updates) => {
-    const { contracts } = get();
-    const contract = contracts.find(c => c.id === id);
-    if (!contract) return;
-    
-    const updatedContract = { ...contract, ...updates };
-    
-    if (updates.endDate) {
-      const endDateMs = new Date(updatedContract.endDate).getTime();
-      const nowMs = Date.now();
-      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-      if (endDateMs < nowMs) updatedContract.status = 'Expired';
-      else if (endDateMs - nowMs < thirtyDaysMs) updatedContract.status = 'Expiring Soon';
-      else updatedContract.status = 'Active';
-    }
-
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('contracts').update(camelToSnake(updatedContract)).eq('id', id);
+      const updated = await SupabaseService.updateContract(id, updates);
+      set(state => ({
+        contracts: state.contracts.map(c => c.id === id ? updated : c)
+      }));
+    } else {
+      set(state => ({
+        contracts: state.contracts.map(c => c.id === id ? { ...c, ...updates } : c)
+      }));
     }
-    
-    set(state => ({
-      contracts: state.contracts.map(c => c.id === id ? updatedContract : c)
-    }));
   },
 
   deleteContract: async (id) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('contracts').delete().eq('id', id);
+      await SupabaseService.deleteContract(id);
     }
     set((state) => ({
       contracts: state.contracts.filter(c => c.id !== id)
@@ -1298,9 +1228,9 @@ export const useStore = create<AppState>()((set, get) => ({
     }
 
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('client_pricing').upsert(camelToSnake({
+      await SupabaseService.upsertClientPricing({
         companyId, productId, negotiatedPrice: price
-      }), { onConflict: 'company_id,product_id' });
+      });
     }
 
     set({ clientPricing: newPricing });
@@ -1363,7 +1293,7 @@ export const useStore = create<AppState>()((set, get) => ({
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
       const item = get().inventory.find(i => i.productId === productId && i.warehouseId === warehouseId);
       if (item) {
-        supabase.from('inventory').update({ quantity: item.quantity }).eq('id', item.id).then();
+        SupabaseService.updateStock(productId, warehouseId, quantityDelta).then();
       }
     }
 
@@ -1420,7 +1350,7 @@ export const useStore = create<AppState>()((set, get) => ({
   addBatch: async (batchStart) => {
     const newBatch: Batch = { ...batchStart, id: generateUUID() };
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('batches').insert(camelToSnake(newBatch));
+      await SupabaseService.addBatch(newBatch);
     }
     set(state => ({ 
       batches: [newBatch, ...state.batches]
@@ -1499,15 +1429,15 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   triggerException: async (excStart) => {
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.reportException(excStart);
+    }
     const newExc: AppException = {
       ...excStart,
       id: generateUUID(),
       status: 'active',
       createdAt: new Date().toISOString()
     };
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('app_exceptions').insert(camelToSnake(newExc));
-    }
     set(state => ({ exceptions: [newExc, ...state.exceptions] }));
     get().addNotification({
       userId: 'admin',
@@ -1519,7 +1449,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   resolveException: async (id) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('app_exceptions').update({ status: 'resolved' }).eq('id', id);
+      await SupabaseService.resolveException(id);
     }
     set(state => ({
       exceptions: state.exceptions.map(e => e.id === id ? { ...e, status: 'resolved' } : e)
@@ -1527,15 +1457,15 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   flagFraud: async (flagStart) => {
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.flagFraud(flagStart);
+    }
     const newFlag: FraudFlag = {
       ...flagStart,
       id: generateUUID(),
       status: 'pending',
       createdAt: new Date().toISOString()
     };
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('fraud_flags').insert(camelToSnake(newFlag));
-    }
     set(state => ({ fraudFlags: [newFlag, ...state.fraudFlags] }));
     get().addNotification({
       userId: 'admin',
@@ -1547,7 +1477,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   updateFraudStatus: async (id, status) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('fraud_flags').update({ status }).eq('id', id);
+      await SupabaseService.updateFraudStatus(id, status);
     }
     set(state => ({
       fraudFlags: state.fraudFlags.map(f => f.id === id ? { ...f, status } : f)
@@ -1555,21 +1485,21 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   addComplianceDoc: async (docStart) => {
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      await SupabaseService.addComplianceDoc(docStart);
+    }
     const newDoc: ComplianceDoc = {
       ...docStart,
       id: generateUUID(),
       createdAt: new Date().toISOString()
     };
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('compliance_docs').insert(camelToSnake(newDoc));
-    }
     set(state => ({ complianceDocs: [newDoc, ...state.complianceDocs] }));
     get().logAction(docStart.uploadedBy, 'upload_compliance_doc', `Uploaded ${docStart.type} document: ${docStart.title}`);
   },
 
   deleteComplianceDoc: async (id) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('compliance_docs').delete().eq('id', id);
+      await SupabaseService.deleteComplianceDoc(id);
     }
     set(state => ({
       complianceDocs: state.complianceDocs.filter(d => d.id !== id)
@@ -1577,20 +1507,19 @@ export const useStore = create<AppState>()((set, get) => ({
   },
 
   payOutstandingInvoices: async (companyId) => {
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('orders')
-        .update({ is_paid: true })
-        .eq('company_id', companyId)
-        .is('is_paid', false)
-        .in('status', ['dispatched', 'delivered']);
+    const { orders, logAction } = get();
+    const unpaidOrderIds = orders
+      .filter(o => o.companyId === companyId && !o.isPaid && ['dispatched', 'delivered'].includes(o.status))
+      .map(o => o.id);
+
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_') && unpaidOrderIds.length > 0) {
+      await SupabaseService.updateOrdersPaid(unpaidOrderIds, true);
     }
-    const { logAction } = get();
+    
     logAction('system', 'pay_invoices', `Corporate payment received for company ${companyId}`);
     set((state) => ({
       orders: state.orders.map(o => 
-        (o.companyId === companyId && !o.isPaid && ['dispatched', 'delivered'].includes(o.status))
-          ? { ...o, isPaid: true } 
-          : o
+        unpaidOrderIds.includes(o.id) ? { ...o, isPaid: true } : o
       )
     }));
   },
@@ -1601,7 +1530,8 @@ export const useStore = create<AppState>()((set, get) => ({
     const totalSettled = settledOrders.reduce((sum, o) => sum + o.netAmount, 0);
 
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('orders').update({ is_paid: true }).in('id', orderIds);
+      await SupabaseService.updateOrdersPaid(orderIds, true);
+      await SupabaseService.updateCompanyCredit(companyId, totalSettled);
     }
 
     logAction('admin', 'reconciled_account', `Marked ${orderIds.length} orders for company ${companyId} as paid. Total Settled: ₹${totalSettled.toLocaleString()}`);
@@ -1620,14 +1550,16 @@ export const useStore = create<AppState>()((set, get) => ({
     const { orders, logAction } = get();
     const settledOrders = orders.filter(o => orderIds.includes(o.id));
     
-    // Group by company to update availableCredit correctly
     const settlementByCompany = settledOrders.reduce((acc, o) => {
       acc[o.companyId] = (acc[o.companyId] || 0) + o.netAmount;
       return acc;
     }, {} as Record<string, number>);
 
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('orders').update({ is_paid: true }).in('id', orderIds);
+      await SupabaseService.updateOrdersPaid(orderIds, true);
+      for (const [companyId, amount] of Object.entries(settlementByCompany)) {
+        await SupabaseService.updateCompanyCredit(companyId, amount);
+      }
     }
 
     logAction('admin', 'bulk_reconciliation', `Global settlement: Marked ${orderIds.length} invoices as paid across ${Object.keys(settlementByCompany).length} clients.`);
@@ -1644,7 +1576,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   markOrdersAsTallyExported: async (orderIds) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('orders').update({ tally_exported: true }).in('id', orderIds);
+      await SupabaseService.markOrdersTallyExported(orderIds);
     }
     set((state) => ({
       orders: state.orders.map(o => orderIds.includes(o.id) ? { ...o, tallyExported: true } : o)
@@ -1669,7 +1601,7 @@ export const useStore = create<AppState>()((set, get) => ({
   addWebhook: async (webhookStart) => {
     const newWh = { ...webhookStart, id: generateUUID(), createdAt: new Date().toISOString() };
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('webhooks').insert(camelToSnake(newWh));
+      await SupabaseService.addWebhook(newWh);
     }
     set((state) => ({ webhooks: [newWh, ...state.webhooks] }));
   },
@@ -1682,7 +1614,7 @@ export const useStore = create<AppState>()((set, get) => ({
       timestamp: new Date().toISOString()
     };
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('field_incidents').insert(camelToSnake(newIncident)).then();
+      await SupabaseService.submitIncident(newIncident);
     }
     set(state => ({ fieldIncidents: [newIncident, ...state.fieldIncidents] }));
     get().addAlert({ message: 'Incident report submitted to Command Center.', type: 'success' });
@@ -1696,7 +1628,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   updateIncidentStatus: async (id, status, adminRemarks) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('field_incidents').update(camelToSnake({ status, adminRemarks })).eq('id', id).then();
+      await SupabaseService.updateIncidentStatus(id, { status, adminRemarks });
     }
     set(state => ({
       fieldIncidents: state.fieldIncidents.map(inc => 
@@ -1714,7 +1646,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   updateWebhook: async (id, updates) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('webhooks').update(camelToSnake(updates)).eq('id', id);
+      await SupabaseService.updateWebhook(id, updates);
     }
     set((state) => ({ webhooks: state.webhooks.map(w => w.id === id ? { ...w, ...updates } : w) }));
   },
@@ -1724,7 +1656,7 @@ export const useStore = create<AppState>()((set, get) => ({
     const wh = webhooks.find(w => w.id === id);
     logAction('admin', 'delete_webhook', `Removed webhook: ${wh?.name || id}`);
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('webhooks').delete().eq('id', id);
+      await SupabaseService.deleteWebhook(id);
     }
     set((state) => ({ webhooks: state.webhooks.filter(w => w.id !== id) }));
   },
@@ -1736,7 +1668,7 @@ export const useStore = create<AppState>()((set, get) => ({
     const newActive = !webhook.active;
     logAction('admin', 'toggle_webhook', `${newActive ? 'Enabled' : 'Disabled'} webhook: ${webhook?.name || id}`);
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-       await supabase.from('webhooks').update({ active: newActive }).eq('id', id);
+       await SupabaseService.toggleWebhookActive(id, newActive);
     }
     set((state) => ({
       webhooks: state.webhooks.map(w => w.id === id ? { ...w, active: newActive } : w)
@@ -1749,8 +1681,7 @@ export const useStore = create<AppState>()((set, get) => ({
     }));
     
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('global_settings')
-        .upsert({ id: 'system', ...camelToSnake(newSettings) });
+      await SupabaseService.updateSettings(newSettings);
     }
   },
 
@@ -1767,7 +1698,7 @@ export const useStore = create<AppState>()((set, get) => ({
       status: 'active'
     };
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('qr_logins').insert(camelToSnake(newToken));
+      await SupabaseService.addQRToken(newToken);
     }
     set(state => ({ qrLogins: [newToken, ...state.qrLogins] }));
     get().logAction('admin', 'generate_qr', `Generated QR token for ${userId ? 'user ' + userId : 'location ' + locationId}`);
@@ -1776,7 +1707,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   revokeQRToken: async (id) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('qr_logins').update({ active: false, status: 'revoked' }).eq('id', id);
+      await SupabaseService.revokeQRToken(id);
     }
     set(state => ({
       qrLogins: state.qrLogins.map(t => t.id === id ? { ...t, active: false, status: 'revoked' } : t)
@@ -1785,21 +1716,11 @@ export const useStore = create<AppState>()((set, get) => ({
 
   loginWithQR: async (token) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      const { data, error } = await supabase.from('qr_logins')
-        .select('*')
-        .eq('token', token)
-        .eq('active', true)
-        .gte('expires_at', new Date().toISOString())
-        .single();
-      
-      if (data && !error) {
-        const camelData = snakeToCamel(data) as QRLogin;
-        const user = get().users.find(u => u.id === camelData.userId);
-        if (user) {
-          set({ currentUser: user });
-          get().logAction(user.id, 'qr_login', `Logged in via QR code (Token: ${token.slice(0, 5)}...)`);
-          return true;
-        }
+      const user = await SupabaseService.loginWithQR(token);
+      if (user) {
+        set({ currentUser: user });
+        get().logAction(user.id, 'qr_login', `Logged in via QR code (Token: ${token.slice(0, 5)}...)`);
+        return true;
       }
     }
     // Fallback to local
@@ -1840,9 +1761,9 @@ export const useStore = create<AppState>()((set, get) => ({
     const newUsers = await Promise.all(newUsersPromises);
     
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('users').insert(newUsers.map(u => {
+      await SupabaseService.bulkAddUsers(newUsers.map(u => {
         const { _plainPassword: _, ...rest } = u; // eslint-disable-line @typescript-eslint/no-unused-vars
-        return camelToSnake(rest);
+        return rest;
       }));
     }
     
@@ -1879,7 +1800,7 @@ export const useStore = create<AppState>()((set, get) => ({
     } as User;
 
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('users').insert(camelToSnake(newUser));
+      await SupabaseService.addUser(newUser);
     }
     
     set(state => ({ users: [...state.users, sanitizeUser(newUser) as User] }));
@@ -1892,7 +1813,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   updateCompanyBranding: async (companyId, branding) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('companies').update({ branding: camelToSnake(branding) }).eq('id', companyId);
+      await SupabaseService.updateCompanyBranding(companyId, branding);
     }
     set(state => ({
       companies: state.companies.map(c => c.id === companyId ? { ...c, branding: { ...c.branding, ...branding } } : c)
@@ -1901,7 +1822,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   updateCompanySettings: async (companyId, settings: Partial<Company>) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('companies').update(camelToSnake(settings)).eq('id', companyId);
+      await SupabaseService.updateCompanySettings(companyId, settings);
     }
     set(state => ({
       companies: state.companies.map(c => c.id === companyId ? { ...c, ...settings } : c)
@@ -1969,7 +1890,7 @@ export const useStore = create<AppState>()((set, get) => ({
     };
 
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('orders').update(camelToSnake(updatedOrder)).eq('id', orderId);
+      await SupabaseService.updateOrderStatus(orderId, newStatus);
     }
 
     set(state => ({
@@ -1997,7 +1918,7 @@ export const useStore = create<AppState>()((set, get) => ({
 
   updateLocationBudget: async (locationId, budget) => {
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('locations').update({ monthly_budget: budget }).eq('id', locationId);
+      await SupabaseService.updateLocationBudget(locationId, budget);
     }
     set(state => ({
       locations: state.locations.map(l => l.id === locationId ? { ...l, monthlyBudget: budget } : l)
@@ -2068,7 +1989,7 @@ export const useStore = create<AppState>()((set, get) => ({
     }
 
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('support_tickets').insert(camelToSnake(newTicket));
+      await SupabaseService.createTicket(newTicket);
     }
 
     get().addAlert({ 
@@ -2084,7 +2005,7 @@ export const useStore = create<AppState>()((set, get) => ({
     if (assignedTo) updatePayload.assignedTo = assignedTo;
 
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('support_tickets').update(camelToSnake(updatePayload)).eq('id', id);
+      await SupabaseService.updateTicketStatus(id, updatePayload);
     }
     set(state => ({
       supportTickets: state.supportTickets.map(t => 
@@ -2108,7 +2029,7 @@ export const useStore = create<AppState>()((set, get) => ({
     if (imageUrl) newMessage.imageUrl = imageUrl;
 
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await supabase.from('ticket_messages').insert(camelToSnake(newMessage));
+      await SupabaseService.addTicketMessage(newMessage);
     }
     set(state => ({
       supportTickets: state.supportTickets.map(t => 

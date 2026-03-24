@@ -56,19 +56,21 @@ const Login: React.FC = () => {
     const isAuto = searchParams.get('auto') === 'true';
 
     if (qrToken) {
-      Promise.resolve().then(() => setIsSubmitting(true));
+      // Use microtask to avoid reacting state changes synchronously in render
+      queueMicrotask(() => setIsSubmitting(true));
       loginWithQR(qrToken).then(success => {
         setIsSubmitting(false);
         if (!success) setAuthError('Invalid or expired QR login token.');
       });
     }
 
-    if (isAuto && autoCompany) {
+    if (isAuto && autoCompany && step === 1) {
       setCompanyIdentifier(autoCompany);
       if (autoUser) setIdentifier(autoUser);
       setStep(2);
     }
-  }, [searchParams, loginWithQR]);
+  }, [searchParams, loginWithQR, step]); 
+
 
   const handleNextStep = (e?: React.FormEvent) => {
     if (e) e.preventDefault();

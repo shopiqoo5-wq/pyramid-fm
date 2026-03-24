@@ -1,28 +1,28 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '../../store';
-import { 
-  LuGlobe, 
-  LuWarehouse, 
-  LuTimer, 
-  LuMapPin,
-  LuTruck,
-  LuShieldCheck,
-  LuTrash2
-} from 'react-icons/lu';
 import { Card, Button, Badge } from '../../components/ui';
+import {
+  Truck,
+  MapPin,
+  Globe,
+  Warehouse,
+  Timer,
+  Trash2,
+  ShieldCheck
+} from 'lucide-react';
 import './Dashboard.css';
 
-const LogisticsManager: React.FC = () => {
-  const { settings, updateSettings, warehouses, orders } = useStore();
-  const [localSLAs, setLocalSLAs] = useState(settings.regionalSLAs);
+const Logistics: React.FC = () => {
+  const { orders, settings, addNotification, currentUser, warehouses, updateSettings } = useStore((state: any) => state);
+  const [localSLAs, setLocalSLAs] = useState(settings.regionalSLAs || { 'Other': 5 });
 
-  const now = useMemo(() => Date.now(), []);
+  const [now] = useState(() => Date.now());
 
   const slaBreaches = useMemo(() => {
-    return orders.filter(o => {
+    return orders.filter((o: any) => {
       if (o.status === 'delivered' || o.status === 'cancelled') return false;
       const ageInDays = (now - new Date(o.createdAt).getTime()) / (1000 * 60 * 60 * 24);
-      const region = Object.keys(localSLAs).find(r => o.locationId.includes(r)) || 'Other';
+      const region = Object.keys(localSLAs).find(r => o.locationId?.includes(r)) || 'Other';
       const limit = localSLAs[region] || 5;
       return ageInDays > limit;
     });
@@ -30,6 +30,9 @@ const LogisticsManager: React.FC = () => {
   
   const handleSave = () => {
     updateSettings({ regionalSLAs: localSLAs });
+    if (currentUser) {
+      addNotification({ userId: currentUser.id, title: 'Logistics Updated', message: 'Regional SLA policies synchronized across all hubs.', type: 'success' });
+    }
   };
 
   const handleUpdateSLA = (region: string, days: string) => {
@@ -60,7 +63,7 @@ const LogisticsManager: React.FC = () => {
         </div>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <Button variant="secondary" onClick={handleAddRegion} className="lift">
-            <LuMapPin size={18} /> Add Service Region
+            <MapPin size={18} /> Add Service Region
           </Button>
           <Button variant="primary" onClick={handleSave} className="lift shadow-glow">
             Save Logistics Policy
@@ -72,7 +75,7 @@ const LogisticsManager: React.FC = () => {
         {/* Regional SLAs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-            <LuGlobe size={24} color="var(--primary)" />
+            <Globe size={24} color="var(--primary)" />
             <h3 style={{ margin: 0 }}>Zone Lead Times (SLA)</h3>
           </div>
           
@@ -90,11 +93,11 @@ const LogisticsManager: React.FC = () => {
                   <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Business Days</span>
                 </div>
                 <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <LuTimer size={14} /> Expected fulfillment
+                  <Timer size={14} /> Expected fulfillment
                 </div>
                 {region !== 'Other' && (
                   <button onClick={() => removeRegion(region)} style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', opacity: 0.5 }}>
-                    <LuTrash2 size={16} />
+                    <Trash2 size={16} />
                   </button>
                 )}
               </Card>
@@ -102,7 +105,7 @@ const LogisticsManager: React.FC = () => {
           </div>
 
           <Card className="glass-surface" style={{ padding: '2rem', background: 'var(--surface-hover)', border: '1px dashed var(--border)', display: 'flex', gap: '2rem', alignItems: 'center' }}>
-             <LuTruck size={48} className="text-muted" />
+             <Truck size={48} className="text-muted" />
              <div>
                 <h4 style={{ margin: 0 }}>Auto-Dispatch Logic</h4>
                 <p className="text-muted" style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem' }}>Orders are automatically assigned to the warehouse with the closest proximity to the delivery region to minimize lead times.</p>
@@ -114,7 +117,7 @@ const LogisticsManager: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {slaBreaches.length > 0 && (
             <Card className="glass-surface" style={{ padding: '1.5rem', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid var(--danger)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-               <LuTimer size={24} className="text-danger" />
+               <Timer size={24} className="text-danger" />
                <div>
                   <div style={{ fontWeight: 800, color: 'var(--danger)' }}>{slaBreaches.length} SLA Breaches Detected</div>
                   <div className="text-muted" style={{ fontSize: '0.8rem' }}>Orders exceeding regional lead times require expedited dispatch.</div>
@@ -123,12 +126,12 @@ const LogisticsManager: React.FC = () => {
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-            <LuWarehouse size={24} color="var(--primary)" />
+            <Warehouse size={24} color="var(--primary)" />
             <h3 style={{ margin: 0 }}>Fulfillment Nodes</h3>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {warehouses.map(w => (
+            {warehouses.map((w: any) => (
               <Card key={w.id} style={{ padding: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -140,7 +143,7 @@ const LogisticsManager: React.FC = () => {
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '0.75rem', fontWeight: 700 }}>{w.code}</div>
                   <div className="text-success" style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'flex-end' }}>
-                    <LuShieldCheck size={12} /> Primary Node
+                    <ShieldCheck size={12} /> Primary Node
                   </div>
                 </div>
               </Card>
@@ -148,7 +151,7 @@ const LogisticsManager: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem', marginBottom: '0.5rem' }}>
-            <LuTruck size={24} color="var(--primary)" />
+            <Truck size={24} color="var(--primary)" />
             <h3 style={{ margin: 0 }}>3PL Carrier Network</h3>
           </div>
 
@@ -182,4 +185,4 @@ const LogisticsManager: React.FC = () => {
   );
 };
 
-export default LogisticsManager;
+export default Logistics;
