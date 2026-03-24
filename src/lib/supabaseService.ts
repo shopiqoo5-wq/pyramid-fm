@@ -203,6 +203,12 @@ export const SupabaseService = {
     await supabase.from('app_exceptions').update({ status: 'resolved' }).eq('id', id);
   },
 
+  async getExceptions() {
+    const { data, error } = await supabase.from('app_exceptions').select('*');
+    if (error) throw error;
+    return snakeToCamel(data);
+  },
+
   // --- FRAUD ---
   async flagFraud(flag: any) {
     await supabase.from('fraud_flags').insert(camelToSnake(flag));
@@ -212,6 +218,12 @@ export const SupabaseService = {
     await supabase.from('fraud_flags').update({ status }).eq('id', id);
   },
 
+  async getFraudFlags() {
+    const { data, error } = await supabase.from('fraud_flags').select('*');
+    if (error) throw error;
+    return snakeToCamel(data);
+  },
+
   // --- COMPLIANCE ---
   async addComplianceDoc(doc: any) {
     await supabase.from('compliance_docs').insert(camelToSnake(doc));
@@ -219,6 +231,14 @@ export const SupabaseService = {
 
   async deleteComplianceDoc(id: string) {
     await supabase.from('compliance_docs').delete().eq('id', id);
+  },
+
+  async getComplianceDocs(companyId?: string) {
+    let query = supabase.from('compliance_docs').select('*');
+    if (companyId) query = query.eq('company_id', companyId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return snakeToCamel(data);
   },
 
   // --- FINANCE ---
@@ -276,6 +296,12 @@ export const SupabaseService = {
 
   async updateCompanySettings(companyId: string, settings: any) {
     await supabase.from('companies').update(camelToSnake(settings)).eq('id', companyId);
+  },
+
+  async getProductBundles() {
+    const { data, error } = await supabase.from('product_bundles').select('*, items:bundle_items(*, product:products(*))');
+    if (error) throw error;
+    return snakeToCamel(data);
   },
 
   // --- BUNDLES ---
@@ -403,5 +429,36 @@ export const SupabaseService = {
   async updateIncidentStatus(id: string, updates: any) {
     const { error } = await supabase.from('field_incidents').update(camelToSnake(updates)).eq('id', id);
     if (error) throw error;
+  },
+
+  async getIncidents() {
+    let query = supabase.from('field_incidents').select('*');
+    const { data, error } = await query;
+    if (error) throw error;
+    return snakeToCamel(data);
+  },
+
+  async submitWorkReport(report: any) {
+    const { error } = await supabase.from('work_reports').insert(camelToSnake(report));
+    if (error) throw error;
+  },
+
+  async submitAttendance(record: any) {
+    const { error } = await supabase.from('attendance_records').insert(camelToSnake(record));
+    if (error) throw error;
+  },
+
+  async getAttendance(locationId?: string) {
+    let query = supabase.from('attendance_records').select('*');
+    if (locationId) query = query.eq('location_id', locationId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return snakeToCamel(data);
+  },
+
+  async getWorkReports() {
+    const { data, error } = await supabase.from('work_reports').select('*');
+    if (error) throw error;
+    return snakeToCamel(data);
   }
 };

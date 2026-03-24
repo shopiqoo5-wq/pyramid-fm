@@ -65,9 +65,11 @@ const Login: React.FC = () => {
     }
 
     if (isAuto && autoCompany && step === 1) {
-      setCompanyIdentifier(autoCompany);
-      if (autoUser) setIdentifier(autoUser);
-      setStep(2);
+      queueMicrotask(() => {
+        setCompanyIdentifier(autoCompany);
+        if (autoUser) setIdentifier(autoUser);
+        setStep(2);
+      });
     }
   }, [searchParams, loginWithQR, step]); 
 

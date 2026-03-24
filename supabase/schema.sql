@@ -622,3 +622,90 @@ CREATE POLICY "Users manage own tickets" ON public.support_tickets FOR ALL USING
 CREATE POLICY "Admins full access tickets" ON public.support_tickets FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
 
 CREATE POLICY "Admins only exceptions" ON public.app_exceptions FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+
+CREATE POLICY "Admins full access attendance" ON public.attendance_records FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+CREATE POLICY "Users view own company attendance" ON public.attendance_records FOR SELECT USING ( location_id IN (SELECT id FROM public.locations) );
+
+CREATE POLICY "Admins full access fraud" ON public.fraud_flags FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+
+CREATE POLICY "Users view own ticket messages" ON public.ticket_messages FOR ALL USING ( ticket_id IN (SELECT id FROM public.support_tickets) );
+CREATE POLICY "Admins full access ticket messages" ON public.ticket_messages FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+
+-- COMPLIANCE DOCUMENTS
+CREATE TABLE public.compliance_docs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    document_url TEXT NOT NULL,
+    expiry_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.compliance_docs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admins full access compliance" ON public.compliance_docs FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+CREATE POLICY "Users view own compliance" ON public.compliance_docs FOR SELECT USING ( company_id = (SELECT company_id FROM public.users WHERE id = auth.uid()) );
+
+-- RETURN REQUESTS
+CREATE TABLE public.return_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id UUID NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+    company_id UUID NOT NULL REFERENCES public.companies(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'requested',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.return_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own returns" ON public.return_requests FOR ALL USING ( company_id = (SELECT company_id FROM public.users WHERE id = auth.uid()) );
+CREATE POLICY "Admins full access returns" ON public.return_requests FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+
+-- QR LOGINS (Dynamic tokens)
+CREATE TABLE public.qr_logins (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    token TEXT UNIQUE NOT NULL,
+    active BOOLEAN DEFAULT TRUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.qr_logins ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read active qr tokens" ON public.qr_logins FOR SELECT USING ( active = TRUE );
+CREATE POLICY "Admins manage qr tokens" ON public.qr_logins FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+
+-- GLOBAL SETTINGS
+CREATE TABLE public.global_settings (
+    id TEXT PRIMARY KEY,
+    settings JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.global_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public view settings" ON public.global_settings FOR SELECT USING ( TRUE );
+CREATE POLICY "Admins edit settings" ON public.global_settings FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+
+-- BATCHES
+CREATE TABLE public.batches (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    order_ids UUID[] NOT NULL,
+    status TEXT NOT NULL DEFAULT 'processing',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.batches ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admins manage batches" ON public.batches FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+
+-- FIELD INCIDENTS
+CREATE TABLE public.field_incidents (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id),
+    location_id UUID REFERENCES public.locations(id),
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    image_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.field_incidents ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users report incidents" ON public.field_incidents FOR INSERT WITH CHECK ( auth.uid() = user_id );
+CREATE POLICY "Users view own incidents" ON public.field_incidents FOR SELECT USING ( auth.uid() = user_id );
+CREATE POLICY "Admins manage incidents" ON public.field_incidents FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
+

@@ -89,7 +89,7 @@ const AttendanceScanner: React.FC<AttendanceScannerProps> = ({ action, onCancel,
                     }
                   });
                 }
-              } catch (e) {
+              } catch {
                 // Ignore invalid QR codes
               }
             },

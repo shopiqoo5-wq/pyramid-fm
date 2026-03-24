@@ -48,9 +48,9 @@ const ClientLayout: React.FC = () => {
   useEffect(() => {
     // Standard approach for closing sidebar on navigation in mobile
     if (isMobile && sidebarOpen) {
-      setSidebarOpen(false);
+      queueMicrotask(() => setSidebarOpen(false));
     }
-  }, [location.pathname]); 
+  }, [location.pathname, isMobile, sidebarOpen]); 
 
 
   const handleLogout = () => {

@@ -45,13 +45,18 @@ const CommandPalette: React.FC = () => {
     if (isOpen) {
       inputRef.current?.focus();
     } else {
-      setQuery('');
-      setResults([]);
+      queueMicrotask(() => {
+        setQuery('');
+        setResults([]);
+      });
     }
   }, [isOpen]);
 
   useEffect(() => {
-    if (!query) return setResults([]);
+    if (!query) {
+      queueMicrotask(() => setResults([]));
+      return;
+    }
 
     const q = query.toLowerCase();
     const searchResults: any[] = [];
@@ -103,7 +108,7 @@ const CommandPalette: React.FC = () => {
          .forEach(c => searchResults.push({ id: c.id, type: 'client', label: c.name, subLabel: c.contactEmail || c.gstNumber, icon: <LuUser />, path: `/admin/clients` }));
     }
 
-    setResults(searchResults);
+    queueMicrotask(() => setResults(searchResults));
   }, [query, products, currentUser, companies]);
 
   const handleSelect = (item: any) => {

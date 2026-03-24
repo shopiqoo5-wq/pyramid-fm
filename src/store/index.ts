@@ -366,15 +366,35 @@ export const useStore = create<AppState>()((set, get) => ({
   initSupabase: async () => {
     if (!import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) return;
     try {
-      const [products, companies, orders, locations, inventory] = await Promise.all([
+      const [
+        products, companies, orders, locations, inventory, 
+        contracts, bundles, exceptions, fraudFlags, 
+        complianceDocs, incidents, workReports, attendance
+      ] = await Promise.all([
         SupabaseService.getProducts(),
         SupabaseService.getCompanies(),
         SupabaseService.getOrders(),
         SupabaseService.getLocations(),
-        SupabaseService.getInventory()
+        SupabaseService.getInventory(),
+        SupabaseService.getContracts(),
+        SupabaseService.getProductBundles(),
+        SupabaseService.getExceptions(),
+        SupabaseService.getFraudFlags(),
+        SupabaseService.getComplianceDocs(),
+        SupabaseService.getIncidents(),
+        SupabaseService.getWorkReports(),
+        SupabaseService.getAttendance()
       ]);
       
-      set({ products, companies, orders, locations, inventory });
+      set({ 
+        products, companies, orders, locations, inventory, 
+        contracts, productBundles: bundles, exceptions, fraudFlags, 
+        complianceDocs, fieldIncidents: incidents, workReports, 
+        attendanceRecords: attendance,
+        // Clear mock indicators now that we have real data
+        users: [], 
+        employees: [] 
+      });
       
       // If we have a session, set current user
       const currentUser = await SupabaseService.getCurrentUser();
@@ -1606,24 +1626,18 @@ export const useStore = create<AppState>()((set, get) => ({
     set((state) => ({ webhooks: [newWh, ...state.webhooks] }));
   },
 
-  submitIncident: async (incidentStart) => {
+  submitIncident: async (incident) => {
     const newIncident: FieldIncident = {
-      ...incidentStart,
-      id: `INC-${Date.now()}`,
-      status: 'Open',
-      timestamp: new Date().toISOString()
+      ...incident,
+      id: generateUUID(),
+      timestamp: new Date().toISOString(),
+      status: 'Open'
     };
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
       await SupabaseService.submitIncident(newIncident);
     }
     set(state => ({ fieldIncidents: [newIncident, ...state.fieldIncidents] }));
-    get().addAlert({ message: 'Incident report submitted to Command Center.', type: 'success' });
-    get().addNotification({
-      userId: 'admin',
-      title: 'New Field Incident Reported',
-      message: `${newIncident.type}: ${newIncident.description.slice(0, 50)}...`,
-      type: 'warning'
-    });
+    get().addAlert({ message: 'Incident reported successfully.', type: 'warning' });
   },
 
   updateIncidentStatus: async (id, status, adminRemarks) => {
@@ -2074,12 +2088,16 @@ export const useStore = create<AppState>()((set, get) => ({
   submitWorkReport: async (report) => {
     const newReport: WorkReport = {
       ...report,
-      id: `rep-${Math.random().toString(36).substr(2, 9)}`,
+      id: generateUUID(),
       timestamp: new Date().toISOString(),
       status: 'pending'
     };
+    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      // Assuming a generic add method for reports or specific one
+      await (SupabaseService as any).submitWorkReport?.(newReport);
+    }
     set(state => ({ workReports: [newReport, ...state.workReports] }));
-    get().addAlert({ message: 'Work report uploaded for review.', type: 'success' });
+    get().addAlert({ message: 'Work report submitted for review.', type: 'success' });
   },
   approveWorkReport: async (reportId, supervisorId) => {
     set(state => ({

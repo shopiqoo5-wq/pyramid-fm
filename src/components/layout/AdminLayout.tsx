@@ -62,8 +62,10 @@ const AdminLayout: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isMobile && sidebarOpen) setSidebarOpen(false);
-  }, [location.pathname, isMobile]);
+    if (isMobile && sidebarOpen) {
+      queueMicrotask(() => setSidebarOpen(false));
+    }
+  }, [location.pathname, isMobile, sidebarOpen]);
 
   useEffect(() => {
     if (currentUser?.role === 'admin') checkLowStock();
