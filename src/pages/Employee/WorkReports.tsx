@@ -247,7 +247,7 @@ const WorkReports: React.FC = () => {
               </button>
             </header>
             
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem', overflowY: 'auto', padding: '0.5rem' }} className="hide-scrollbar">
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem', overflowY: 'auto', padding: '0.5rem 0.5rem 120px 0.5rem' }} className="hide-scrollbar">
               <div className="input-group" style={{ margin: 0 }}>
                 <label className="input-label" style={{ marginBottom: '1rem' }}>Photographic Evidence (Required)</label>
                 <motion.div 

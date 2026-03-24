@@ -63,7 +63,7 @@ const FieldIncident: React.FC = () => {
   }
 
   return (
-    <div className="employee-main animate-fade-in" style={{ paddingBottom: '8rem' }}>
+    <div className="employee-main animate-fade-in" style={{ paddingBottom: '12rem' }}>
       <header style={{ marginBottom: '3rem' }}>
         <Badge variant="danger" style={{ marginBottom: '1.25rem', padding: '0.4rem 1.25rem', borderRadius: '12px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.15em', fontSize: '0.7rem' }}>
           {t('incidents.title')}
