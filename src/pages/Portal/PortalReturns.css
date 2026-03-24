@@ -1,0 +1,97 @@
+/* ===============================================
+   PREMIUM RETURNS & REVERSE LOGISTICS
+   =============================================== */
+
+.returns-container {
+  animation: fadeIn 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.rma-terminal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+}
+
+.rma-header {
+  padding: 2rem;
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.return-card-premium {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s;
+}
+
+.return-card-premium:hover {
+  border-color: var(--primary-light);
+  transform: translateX(5px);
+  background: var(--surface-hover);
+}
+
+.eligible-order-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s;
+}
+
+.eligible-order-card:hover {
+  border-color: var(--primary);
+  background: var(--surface);
+}
+
+/* ── Status Tracking ── */
+.rma-status-tracker {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.rma-status-dot {
+  height: 4px;
+  flex: 1;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.rma-status-dot.active {
+  background: var(--primary);
+  box-shadow: 0 0 8px rgba(var(--primary-rgb), 0.5);
+}
+
+.rma-status-dot.success {
+  background: var(--success);
+}
+
+/* ── Photo Verification ── */
+.evidence-upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: 20px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.evidence-upload-zone:hover {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.05);
+}

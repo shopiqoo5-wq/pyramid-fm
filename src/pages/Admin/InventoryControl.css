@@ -1,0 +1,72 @@
+/* ==============================
+   INVENTORY CONTROL PAGE
+   ============================== */
+
+.inventory-control-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.batch-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: box-shadow var(--transition-fast);
+}
+
+.batch-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.batch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.batch-id {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary);
+  font-family: 'Courier New', monospace;
+  background: var(--primary-light);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.expiry-warning {
+  color: var(--danger);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--danger-bg);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-full);
+}
+
+.stock-progress {
+  width: 100%;
+  height: 6px;
+  background: var(--surface-hover);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.stock-bar {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  transition: width 0.6s ease;
+}
+
+.stock-bar.low {
+  background: linear-gradient(90deg, var(--danger), #ef4444aa);
+}
+
+.stock-bar.medium {
+  background: linear-gradient(90deg, var(--warning), #f59e0baa);
+}

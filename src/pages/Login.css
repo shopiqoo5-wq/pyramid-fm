@@ -1,0 +1,291 @@
+/* ============================================================
+   PYRAMID FM — ADAPTIVE IDENTITY HUB
+   Split-Command (PC) + Focused Immersion (Mobile)
+   ============================================================ */
+
+.login-immersive-wrapper {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: var(--bg-color);
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-x: hidden;
+  padding: 2rem;
+  /* Safe area support */
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+}
+
+/* ── PC OPTIMIZED (SPLIT-COMMAND) ── */
+@media (min-width: 1024px) {
+  .login-immersive-wrapper {
+    flex-direction: row;
+    gap: 4rem;
+    padding: 4rem;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .login-card-premium {
+    flex: 0 0 480px; /* Fixed width for auth stability */
+    margin-bottom: 0 !important;
+  }
+
+  .login-info-side-container {
+    flex: 0 1 500px;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+    order: -1; /* Sidebar on the left */
+  }
+
+  .login-info-grid {
+    grid-template-columns: 1fr !important; /* Stacked within sidebar */
+    margin-top: 0 !important;
+  }
+}
+
+/* ── DYNAMIC BACKGROUND NEXUS ── */
+/* Background is now global in index.css */
+
+/* ── AUTH CARD ARCHITECTURE ── */
+.login-card-premium {
+  width: 100%;
+  max-width: 500px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 40px;
+  padding: 3.5rem;
+  position: relative;
+  z-index: 10;
+  box-shadow: var(--shadow-xl), 0 0 0 1px rgba(0,0,0,0.02);
+  margin-bottom: 3rem; /* Spacing for mobile flow */
+}
+
+.login-header-immersive {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.login-brand-logo {
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+}
+
+.login-header-immersive h1 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.04em;
+}
+
+.login-header-immersive p {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+}
+
+/* ── NEWSLETTER & ENGAGEMENT ── */
+.login-newsletter-block {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+}
+
+.newsletter-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.newsletter-form {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.newsletter-input {
+  flex: 1;
+  background: var(--bg-color) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  height: 48px !important;
+  padding: 0 1.25rem !important;
+  font-size: 0.95rem !important;
+}
+
+.newsletter-btn {
+  padding: 0 1.5rem;
+  background: var(--text-main);
+  color: var(--bg-color);
+  border: none;
+  border-radius: 14px;
+  font-weight: 800;
+  transition: opacity 0.2s;
+}
+
+/* ── CORPORATE INFO GRID ── */
+.login-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 1100px;
+  z-index: 10;
+}
+
+.info-block {
+  padding: 2.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 32px;
+}
+
+.info-block h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.info-block p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.info-contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.contact-item svg {
+  color: var(--primary);
+}
+
+/* ── AUTH FLOW UTILS ── */
+.auth-step-container {
+  min-height: 260px;
+}
+
+.login-form-immersive {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.login-submit-btn {
+  height: 56px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-size: 1.1rem;
+  font-weight: 800;
+  transition: all 0.3s;
+}
+
+.login-submit-btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px var(--primary-glow);
+}
+
+.btn-glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.btn-glass:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.step-back-btn {
+  margin-bottom: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ── MOBILE ADAPTATION ── */
+@media (max-width: 1023px) {
+  .login-immersive-wrapper {
+    padding: var(--gutter-side-mobile);
+    padding-top: 5rem;
+    justify-content: flex-start;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .login-card-premium {
+    padding: 2rem 1.25rem;
+    border-radius: 32px;
+    width: 100%;
+    margin: 0 auto 2.5rem;
+    min-width: 0;
+  }
+
+  .login-header-immersive h1 {
+    font-size: 2rem;
+  }
+
+  .login-info-side-container {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .login-info-grid {
+    grid-template-columns: 1fr;
+    padding-bottom: 5rem;
+    width: 100%;
+    gap: 1rem;
+  }
+
+  .info-block {
+    padding: 1.5rem;
+    border-radius: 24px;
+  }
+
+  .newsletter-form {
+    flex-direction: column;
+  }
+}

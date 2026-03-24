@@ -1,0 +1,227 @@
+/* ===============================================
+   ADMIN DASHBOARD - Premium Metrics & Charts
+   =============================================== */
+
+.admin-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ── Stats Grid ── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.25rem;
+}
+
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+}
+
+.metric-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.metric-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.metric-info { display: flex; flex-direction: column; }
+
+.metric-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.3rem;
+}
+
+.metric-value {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--text-main);
+  font-family: 'Outfit', sans-serif;
+  line-height: 1.1;
+}
+
+/* ── Dashboard Grid ── */
+.dashboard-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 1100px) { .dashboard-content { grid-template-columns: 1fr; } }
+
+/* ── Card Header ── */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-header h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+
+.btn-text:hover { background-color: var(--primary-light); }
+
+/* ── Data Table (used across pages) ── */
+.table-responsive { overflow-x: auto; }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.data-table th, .data-table td {
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-table th {
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  background-color: var(--bg-color);
+  white-space: nowrap;
+}
+
+.data-table tr:last-child td { border-bottom: none; }
+
+.data-table tbody tr {
+  transition: background-color var(--transition-fast);
+  cursor: default;
+}
+
+.data-table tbody tr:hover { background-color: var(--surface-hover); }
+
+.font-medium { font-weight: 500; }
+
+/* ── Status Badges (shared across the whole app) ── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.22rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.status-badge.success  { background: var(--success-bg); color: var(--success); }
+.status-badge.warning  { background: var(--warning-bg); color: #92400e; }
+.status-badge.danger   { background: var(--danger-bg);  color: var(--danger); }
+.status-badge.info     { background: var(--info-bg);    color: var(--info); }
+.status-badge.primary  { background: var(--primary-light); color: var(--primary); }
+.status-badge.neutral  { background: var(--surface-hover); color: var(--text-muted); }
+[data-theme="dark"] .status-badge.warning { color: var(--warning); }
+
+/* ── Alert List ── */
+.alert-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-md);
+  background-color: var(--danger-bg);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.alert-icon { margin-top: 0.05rem; flex-shrink: 0; }
+
+.alert-details h4 {
+  font-size: 0.875rem;
+  color: var(--text-main);
+  margin-bottom: 0.15rem;
+  font-weight: 600;
+}
+
+.alert-details p {
+  font-size: 0.8rem;
+  color: var(--danger);
+  font-weight: 500;
+}
+
+/* ── Empty State ── */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+/* ── Page Header (shared) ── */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.page-header h2 {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.page-header p {
+  margin: 0.25rem 0 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Stat Card Accents ── */
+.stat-card-blue   { background: linear-gradient(135deg, #eff6ff, #dbeafe); border-color: #bfdbfe; }
+.stat-card-green  { background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-color: #bbf7d0; }
+.stat-card-amber  { background: linear-gradient(135deg, #fffbeb, #fef3c7); border-color: #fde68a; }
+.stat-card-purple { background: linear-gradient(135deg, #faf5ff, #ede9fe); border-color: #ddd6fe; }
+
+[data-theme="dark"] .stat-card-blue   { background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.2); }
+[data-theme="dark"] .stat-card-green  { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.2); }
+[data-theme="dark"] .stat-card-amber  { background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.2); }
+[data-theme="dark"] .stat-card-purple { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.2); }

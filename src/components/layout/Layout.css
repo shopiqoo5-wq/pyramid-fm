@@ -1,0 +1,357 @@
+/* ============================================================
+   PYRAMID FM — GLOBAL GLASS LAYOUT
+   Floating Islands + Digital Nexus Sync
+   ============================================================ */
+
+/* ── APP SHELL ── */
+.app-container {
+  display: flex;
+  height: 100vh;
+  height: 100dvh; /* Modern mobile height */
+  width: 100%;
+  padding: 1.25rem;
+  gap: 1.25rem;
+  overflow: hidden;
+  background: transparent;
+  position: relative;
+  z-index: 10;
+}
+
+/* ── SIDEBAR ISLAND ── */
+.sidebar {
+  background: var(--surface-glass);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  display: flex;
+  flex-direction: column;
+  transition: width var(--transition-premium), opacity var(--transition-normal), border var(--transition-normal), margin var(--transition-premium);
+  box-shadow: var(--shadow-xl);
+  margin-right: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+  z-index: 50;
+}
+
+.sidebar.open  { width: var(--sidebar-width-open); }
+.sidebar.closed { 
+  width: var(--sidebar-width-closed); 
+  opacity: 0;
+  pointer-events: none;
+  border-color: transparent;
+  margin-right: -1.25rem; /* Eliminate app-container gap */
+}
+
+.sidebar-header {
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.logo-icon-sm {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.1rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--text-main);
+  letter-spacing: -0.03em;
+  margin-left: 0.75rem;
+}
+
+/* Sidebar Nav */
+.sidebar-nav {
+  flex: 1;
+  padding: 1.25rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+
+.nav-item:hover {
+  background: var(--surface-hover);
+  color: var(--text-main);
+}
+
+.nav-item.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 8px 16px -4px rgba(var(--primary-rgb), 0.3);
+}
+
+.nav-item.active .nav-icon {
+  color: white;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+  padding: 1.5rem 1rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.user-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.user-profile-card:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+.logout-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.85rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+
+.logout-button:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* ── MAIN CONTENT ISLAND ── */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-glass);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  min-width: 0;
+  z-index: 10;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  height: var(--topbar-height);
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+  padding: 0 var(--gutter-side);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.page-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.03em;
+}
+
+/* ── CONTENT AREA ── */
+.content-area {
+  flex: 1;
+  padding: var(--gutter-side);
+  overflow-y: auto;
+  background: transparent;
+  /* Smooth scrolling for iOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── MOBILE OVERLAY ── */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 900;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1024px) {
+  .app-container { padding: 0.75rem; gap: 0.75rem; }
+  .content-area { padding: var(--gutter-side-mobile); }
+  .topbar { padding: 0 var(--gutter-side-mobile); }
+}
+
+@media (max-width: 768px) {
+  .app-container { 
+    padding: 0; 
+    gap: 0; 
+    height: 100vh; 
+    height: 100dvh;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    height: 100dvh;
+    width: 280px;
+    border-radius: 0 24px 24px 0;
+    transform: translateX(-100%);
+    z-index: 1000;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sidebar.open { 
+    transform: translateX(0); 
+    box-shadow: 20px 0 50px rgba(0,0,0,0.3);
+  }
+
+  .sidebar.closed {
+    transform: translateX(-100%);
+  }
+
+  .main-content { 
+    border-radius: 0; 
+    border: none;
+  }
+
+  .topbar {
+    padding: 0 1rem;
+    justify-content: flex-start;
+    height: 60px;
+    gap: 0;
+  }
+
+  /* Integrated toggle in the TopBar flow */
+  .mobile-header-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--surface-glass);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--border-glass);
+    color: var(--primary);
+    margin-right: 1rem;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+    animation: pulse-glow 3s infinite ease-in-out;
+  }
+
+  .mobile-header-toggle:active {
+    transform: scale(0.9);
+    background: var(--primary-light);
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    width: auto;
+    padding-left: 0;
+  }
+
+  .page-title {
+    font-size: 1.1rem !important;
+    white-space: nowrap;
+  }
+
+  .content-area {
+    padding: 1.25rem;
+  }
+
+  .content-area .page-header {
+    padding: 0;
+    margin-bottom: 2rem;
+    text-align: left;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1rem;
+  }
+
+  /* THE SYNC: Offset the page-title in content if there is no toggle to match the TopBar title */
+  /* TopBar title is at: Gutter(1rem) + Toggle(38px) + Gap(1rem) = ~4.3rem */
+  /* We'll use a consistent 3.5rem left padding for all mobile headers to achieve unity */
+
+  .topbar-left .page-title,
+  .content-area .page-header .page-title {
+    padding-left: 0; /* Reset previous offsets */
+  }
+
+  /* Using a shared class for the start of the text axis */
+  .topbar-left, .page-header {
+    /* Manual sync: TopBar title starts after the 38px toggle. 
+       PageHeader title also needs the same starting point. */
+  }
+
+  .content-area .page-header::before {
+    /* Invisible spacer to match the toggle width in the topbar */
+    content: "";
+    display: block;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+  }
+}

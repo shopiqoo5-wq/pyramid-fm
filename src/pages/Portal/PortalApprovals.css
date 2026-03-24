@@ -1,0 +1,163 @@
+/* ===============================================
+   PREMIUM APPROVALS & GOVERNANCE STYLES
+   =============================================== */
+
+.approvals-container {
+  animation: fadeIn 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ── Approval Stat Tiles ── */
+.approval-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+
+.approval-stat-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.approval-stat-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary-light);
+  box-shadow: var(--shadow-xl);
+}
+
+.stat-icon-wrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+/* ── Approval Request Cards ── */
+.request-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 1.5rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  transition: all 0.3s;
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.request-card:hover {
+  border-color: var(--primary-light);
+  background: var(--surface-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.request-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 100%;
+  background: var(--warning);
+  border-radius: 24px 0 0 24px;
+}
+
+.request-id {
+  font-family: 'Inter', monospace;
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--primary);
+}
+
+.request-meta {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.request-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.request-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-left: auto;
+}
+
+/* ── Approval Actions ── */
+.approval-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-reject {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.1);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reject:hover {
+  background: #ef4444;
+  color: white;
+  transform: scale(1.05);
+}
+
+.btn-approve-direct {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 0 1.25rem;
+  font-weight: 800;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-approve-direct:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+/* ── Review Summary ── */
+.review-summary-box {
+  background: var(--primary-light);
+  border-radius: 20px;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  border: 1px solid var(--primary-glow);
+}

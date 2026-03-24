@@ -1,0 +1,95 @@
+/* ===============================================
+   PREMIUM QUICK ORDER & BULK UPLOAD STYLES
+   =============================================== */
+
+.quick-order-container {
+  animation: fadeIn 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.search-console-premium {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+}
+
+.search-results-overlay {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  margin-top: 0.5rem;
+  z-index: 100;
+  max-height: 320px;
+  overflow-y: auto;
+  box-shadow: var(--shadow-2xl);
+}
+
+.search-item-premium {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid var(--border);
+}
+
+.search-item-premium:hover {
+  background: var(--surface-hover);
+  padding-left: 1.5rem;
+}
+
+.draft-item-premium {
+  display: flex;
+  align-items: center;
+  padding: 1.25rem;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  margin-bottom: 0.75rem;
+  transition: all 0.3s;
+}
+
+.draft-item-premium:hover {
+  border-color: var(--primary-light);
+  transform: translateX(5px);
+  background: var(--surface);
+}
+
+.bulk-upload-zone-premium {
+  border: 2px dashed var(--primary-light);
+  border-radius: 24px;
+  padding: 3rem 2rem;
+  text-align: center;
+  background: rgba(var(--primary-rgb), 0.03);
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.bulk-upload-zone-premium:hover {
+  border-color: var(--primary);
+  background: rgba(var(--primary-rgb), 0.08);
+  transform: scale(1.02);
+}
+
+.parsing-progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  margin-top: 1.5rem;
+  overflow: hidden;
+}
+
+.parsing-progress-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}

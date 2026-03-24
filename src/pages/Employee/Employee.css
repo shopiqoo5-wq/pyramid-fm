@@ -1,0 +1,337 @@
+/* ============================================================
+   PYRAMID FM — OPERATIONS WORKFORCE CSS (UNIFIED)
+   Aligned with Global Design System (Admin/Portal)
+   ============================================================ */
+
+.employee-app-container {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-color);
+  color: var(--text-main);
+  display: flex;
+  flex-direction: column;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* ── TOP BAR (Aligned with Admin Header) ── */
+.employee-header {
+  height: clamp(60px, 8vh, 80px);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.brand-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-icon-sm {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: white;
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+.brand-text-sm {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: 1.1rem;
+  background: linear-gradient(to right, var(--text-main), var(--text-sub));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── MAIN CONTENT ── */
+.employee-main {
+  flex: 1;
+  padding: 1.5rem;
+  max-width: 500px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── DASHBOARD BLOCKS (Using Global Semantic Colors) ── */
+.duty-status-pill {
+  display: inline-flex;
+  padding: 0.35rem 1rem;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1rem;
+}
+
+.status-on {
+  background: hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.15);
+  color: var(--primary);
+  border: 1px solid hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.2);
+}
+
+.status-off {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.clock-display {
+  font-size: 3.5rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  margin-bottom: 0.25rem;
+  line-height: 1;
+  color: var(--text-main);
+}
+
+.date-display {
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 2.5rem;
+  letter-spacing: 0.05em;
+}
+
+/* ── ACTION GRID (Unified with Admin Card/Btn) ── */
+.action-grid-field {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.punch-btn {
+  height: 160px;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+}
+
+.punch-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.punch-btn:active {
+  transform: scale(0.94) translateY(4px);
+}
+
+.punch-in-btn {
+  background: linear-gradient(135deg, #f97316, #ea580c);
+  color: white;
+  box-shadow: 0 20px 40px rgba(249, 115, 22, 0.3), inset 0 2px 10px rgba(255,255,255,0.2);
+}
+
+.punch-out-btn {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  color: white;
+  box-shadow: 0 20px 40px rgba(239, 68, 68, 0.3), inset 0 2px 10px rgba(255,255,255,0.2);
+}
+
+.upload-card-btn {
+  height: 110px;
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  padding: 0 1.75rem;
+  gap: 1.25rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.upload-card-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.upload-card-btn:active {
+  background: var(--surface-hover);
+}
+
+.icon-box-orange {
+  width: 48px;
+  height: 48px;
+  background: hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.15);
+  color: var(--primary);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── TASK LIST (Unified Card Style) ── */
+.tasks-container-field {
+  background: var(--surface-glass);
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-top: 2rem;
+  box-shadow: var(--shadow-md);
+}
+
+.tasks-header-field {
+  padding: 1.25rem;
+  background: var(--surface-hover);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.task-item-field {
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+
+.task-checkbox-field {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  border: 2px solid var(--border-strong);
+}
+
+/* ── BOTTOM NAV (Premium Glass) ── */
+/* ── FLOATING BOTTOM NAV ── */
+.mobile-bottom-nav {
+  height: 76px;
+  margin: 0 1.25rem 1.5rem;
+  background: rgba(15, 15, 15, 0.85);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255,255,255,0.2);
+}
+
+.nav-tab-field {
+  border: none;
+  background: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0.5rem;
+  border-radius: 16px;
+}
+
+.nav-tab-field.active {
+  color: var(--text-main);
+  transform: translateY(-2px);
+}
+
+.nav-tab-field.active svg {
+  color: var(--primary);
+  filter: drop-shadow(0 0 8px var(--primary-glow));
+}
+
+/* ── OVERLAYS ── */
+.scanner-overlay-immersive {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-color); /* This will adapt to light/dark theme */
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  color: var(--text-main);
+}
+
+.scan-frame-container {
+  flex: 1;
+  border: 4px dashed var(--border);
+  border-radius: var(--radius-2xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.qmark-frame {
+  width: 260px;
+  height: 260px;
+  border: 3px solid var(--primary);
+  border-radius: var(--radius-2xl);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 50px var(--primary-glow);
+}
+
+.scan-laser {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--primary);
+  box-shadow: 0 0 15px var(--primary);
+}
+
+/* ── FORM UI (Standard Input Feel) ── */
+.field-textarea {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  background: var(--surface-glass);
+  border: 1px solid var(--border);
+  padding: 1.25rem;
+  color: var(--text-main);
+  font-size: 1rem;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+}
+
+.field-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}

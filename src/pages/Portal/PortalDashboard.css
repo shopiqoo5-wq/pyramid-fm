@@ -1,0 +1,242 @@
+/* ===============================================
+   CLIENT PORTAL DASHBOARD - Premium Experience
+   =============================================== */
+
+.portal-dashboard {
+  animation: fadeIn 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* ── Metrics Glass ── */
+.metrics-grid.premium {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.glass-metric {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-xl);
+  padding: 1.75rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-premium);
+}
+
+.glass-metric::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05), transparent);
+  pointer-events: none;
+}
+
+.glass-metric:hover {
+  transform: translateY(-5px);
+  border-color: rgba(var(--primary-rgb), 0.3);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.glass-metric .metric-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: rgba(var(--primary-rgb), 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  flex-shrink: 0;
+  box-shadow: inset 0 0 12px rgba(var(--primary-rgb), 0.1);
+}
+
+/* ── Live Logistics Tracker ── */
+.logistics-tracker {
+  padding: 2rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.tracker-stages {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  margin: 2rem 0;
+}
+
+.tracker-stages::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+  z-index: 1;
+}
+
+.tracker-stage {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 80px;
+}
+
+.stage-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 0 0 4px var(--surface);
+}
+
+.tracker-stage.active .stage-dot {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--surface), 0 0 15px var(--primary-glow);
+}
+
+.tracker-stage.complete .stage-dot {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.stage-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: color 0.3s;
+}
+
+.active .stage-label { color: var(--primary); }
+.complete .stage-label { color: var(--text-main); }
+
+/* Progress line animation */
+.progress-line {
+  position: absolute;
+  top: 10px;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--success), var(--primary));
+  z-index: 1;
+  transition: width 1s cubic-bezier(0.23, 1, 0.32, 1);
+  box-shadow: 0 0 10px var(--primary-glow);
+}
+
+/* ── Quick Reorder Cards ── */
+.quick-reorder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.25rem;
+}
+
+.insta-add-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  position: relative;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+}
+
+.insta-add-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-xl);
+}
+
+.insta-add-card .product-img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  margin-bottom: 0.75rem;
+}
+
+.insta-add-card h4 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.insta-add-btn {
+  width: 100%;
+  margin-top: auto;
+  border-radius: 12px;
+  background: var(--surface-hover);
+  color: var(--primary);
+  border: 1px solid var(--border);
+  font-weight: 700;
+  font-size: 0.8rem;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.insta-add-card:hover .insta-add-btn {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+/* ── Budget Progress ── */
+.budget-insight-card {
+  background: linear-gradient(135deg, var(--surface), rgba(var(--primary-rgb), 0.03));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 1.75rem;
+}
+
+.budget-meter-track {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.budget-meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  transition: width 1.2s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+}
+
+.budget-meter-fill.warning { background: var(--warning); }
+.budget-meter-fill.danger { background: var(--danger); }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .metrics-grid.premium { grid-template-columns: 1fr; }
+  .dashboard-content { grid-template-columns: 1fr !important; }
+}

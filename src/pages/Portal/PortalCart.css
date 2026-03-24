@@ -1,0 +1,157 @@
+/* ===============================================
+   PREMIUM CART & CHECKOUT STYLES
+   =============================================== */
+
+.cart-page {
+  animation: fadeIn 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.cart-items-section {
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Summary Card ── */
+.checkout-summary-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-xl);
+  position: sticky;
+  top: 1.5rem;
+}
+
+.summary-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.checkout-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.checkout-row.total {
+  border-bottom: none;
+  padding-top: 1.25rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+/* ── Split Logic Card ── */
+.split-logic-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.split-input-group {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  background: var(--bg-color);
+  padding: 0.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+.split-input-group:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+/* ── PO Upload Zone ── */
+.po-upload-dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 18px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  background: var(--surface-hover);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.po-upload-dropzone:hover {
+  border-color: var(--primary);
+  background: var(--surface);
+  transform: translateY(-2px);
+}
+
+/* ── Feedback Banners ── */
+.checkout-alert {
+  padding: 1rem;
+  border-radius: 14px;
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  line-height: 1.4;
+}
+
+.checkout-alert.warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.checkout-alert.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+/* ── Saved for Later ── */
+.saved-items-section {
+  margin-top: 3rem;
+  padding: 2rem;
+  background: rgba(var(--surface-rgb), 0.4);
+  border: 1px dashed var(--border);
+  border-radius: 24px;
+}
+
+.saved-item-row {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+.saved-item-row:last-child {
+  border-bottom: none;
+}
+
+.saved-item-row:hover {
+  background: var(--surface);
+}
+
+.saved-item-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--surface);
+}
+
+.quote-actions-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
