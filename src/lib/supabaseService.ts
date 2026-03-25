@@ -443,6 +443,7 @@ export const SupabaseService = {
     // Remove individual properties that are now mapped
     if (payload.userId) delete payload.userId;
     if (payload.employeeId) delete payload.employeeId;
+    if (payload.timestamp) delete payload.timestamp;
     
     const { error } = await supabase.from('field_incidents').insert(camelToSnake(payload));
     if (error) throw error;
@@ -471,6 +472,7 @@ export const SupabaseService = {
     if (payload.userId) delete payload.userId;
     if (payload.employeeId) delete payload.employeeId;
     if (payload.locationId) delete payload.locationId;
+    if (payload.timestamp) delete payload.timestamp;
 
     const { error } = await supabase.from('work_reports').insert(camelToSnake(payload));
     if (error) throw error;
