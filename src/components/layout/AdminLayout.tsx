@@ -123,6 +123,7 @@ const AdminLayout: React.FC = () => {
         { name: 'Work Evidence QA',   path: '/admin/workforce/reports',    icon: <LuImage size={20} /> },
         { name: 'Task Assignments',   path: '/admin/workforce/assignments', icon: <LuListTodo size={20} /> },
         { name: 'Role Architecture',  path: '/admin/workforce/roles',       icon: <LuShieldCheck size={20} /> },
+        { name: 'Site QR Codes',      path: '/admin/workforce/qr-gen',      icon: <LuQrCode size={20} /> },
         { name: 'Leave & Absences',   path: '/admin/workforce/leave',      icon: <LuCalendar size={20} /> }
       ]
     },

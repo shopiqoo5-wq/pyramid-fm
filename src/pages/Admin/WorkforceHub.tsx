@@ -6,7 +6,7 @@ import {
   LuUsers, LuSearch,
   LuClock, LuFileText, LuCheck,
   LuChevronRight, LuX, LuTrendingUp, LuShieldCheck,
-  LuListTodo, LuPlus, LuTrash2, LuCalendar, LuCalendarCheck
+  LuListTodo, LuPlus, LuTrash2, LuCalendar, LuCalendarCheck, LuQrCode
 } from 'react-icons/lu';
 import { Modal } from '../../components/ui/Modal';
 import { AnimatePresence } from 'framer-motion';
@@ -16,6 +16,7 @@ import RoleManagement from './RoleManagement';
 import LeaveApprovals from './LeaveApprovals';
 import BiometricMatches from './BiometricMatches';
 import Timesheets from './Timesheets';
+import QRGeneration from './QRGeneration';
 
 const WorkforceHub: React.FC = () => {
   const employees = useStore(state => state.employees);
@@ -124,6 +125,7 @@ const WorkforceHub: React.FC = () => {
           { id: 'leave', label: 'Leave', icon: LuCalendarCheck },
           { id: 'biometrics', label: 'Biometrics', icon: LuCheck },
           { id: 'timesheets', label: 'Overrides', icon: LuClock },
+          { id: 'qr-gen', label: 'QR Codes', icon: LuQrCode },
         ].map(tab => (
           <button
             key={tab.id}
@@ -164,6 +166,9 @@ const WorkforceHub: React.FC = () => {
 
       {/* Timesheets Overrides View */}
       {activeTab === 'timesheets' && <Timesheets isTab />}
+
+      {/* QR Code Generation View */}
+      {activeTab === 'qr-gen' && <QRGeneration isTab />}
 
       {/* Roster View */}
       {activeTab === 'roster' && (
