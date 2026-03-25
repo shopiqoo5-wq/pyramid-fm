@@ -434,7 +434,17 @@ export const SupabaseService = {
 
   // --- FIELD OPS ---
   async submitIncident(incident: any) {
-    const { error } = await supabase.from('field_incidents').insert(camelToSnake(incident));
+    // Schema expects user_id instead of employee_id and a title
+    const payload = {
+      ...incident,
+      user_id: incident.userId || incident.employeeId, // Fallback to employeeId if userId missing
+      title: incident.title || `${incident.type} Incident Reported`
+    };
+    // Remove individual properties that are now mapped
+    if (payload.userId) delete payload.userId;
+    if (payload.employeeId) delete payload.employeeId;
+    
+    const { error } = await supabase.from('field_incidents').insert(camelToSnake(payload));
     if (error) throw error;
   },
 

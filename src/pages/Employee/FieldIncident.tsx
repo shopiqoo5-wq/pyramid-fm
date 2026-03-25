@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useStore } from '../../store';
 import { Button, Badge } from '../../components/ui';
 import { 
@@ -15,7 +15,9 @@ const FieldIncident: React.FC = () => {
   const [severity, setSeverity] = useState<'Low' | 'Medium' | 'High' | 'Critical'>('Medium');
   const [description, setDescription] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [isTransmitting, setIsTransmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -27,18 +29,27 @@ const FieldIncident: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employee) return;
+    if (!employee || !currentUser) return;
 
-    await submitIncident({
-      employeeId: employee.id,
-      locationId: employee.locationId,
-      type,
-      severity,
-      description,
-      imageUrl: imagePreview || 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&q=80&w=800'
-    });
+    setIsTransmitting(true);
+    try {
+      await submitIncident({
+        employeeId: employee.id,
+        userId: currentUser.id,
+        locationId: employee.locationId,
+        type,
+        severity,
+        description,
+        title: `${severity} ${type} Incident`,
+        imageUrl: imagePreview || 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&q=80&w=800'
+      });
 
-    setSubmitted(true);
+      setSubmitted(true);
+    } catch (err) {
+      console.error('Failed to transmit incident', err);
+    } finally {
+      setIsTransmitting(false);
+    }
   };
 
   if (submitted) {
@@ -153,20 +164,52 @@ const FieldIncident: React.FC = () => {
 
         {/* Action Controls */}
         <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '1.25rem' }}>
-          <div style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '24px', background: 'var(--surface-hover)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border)', overflow: 'hidden', transition: 'all 0.2s' }} className="hover-lift">
+          <div 
+            onClick={() => fileInputRef.current?.click()}
+            style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '24px', background: 'var(--surface-hover)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border)', overflow: 'hidden', transition: 'all 0.2s', cursor: 'pointer' }} 
+            className="hover-lift"
+          >
             {imagePreview ? (
               <img src={imagePreview} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <LuCamera size={28} />
             )}
-            <input type="file" accept="image/*" onChange={handleImageUpload} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', zIndex: 10 }} />
+            <input 
+              ref={fileInputRef}
+              type="file" 
+              accept="image/*" 
+              onChange={handleImageUpload} 
+              style={{ display: 'none' }} 
+            />
           </div>
           <button 
             type="submit"
+            disabled={isTransmitting}
             className="btn-primary lift"
-            style={{ height: '70px', borderRadius: '24px', fontWeight: 950, fontSize: '1.2rem', background: 'linear-gradient(135deg, var(--danger), #dc2626)', boxShadow: '0 15px 35px rgba(239, 68, 68, 0.3)', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}
+            style={{ 
+              height: '70px', 
+              borderRadius: '24px', 
+              fontWeight: 950, 
+              fontSize: '1.2rem', 
+              background: isTransmitting ? 'var(--border)' : 'linear-gradient(135deg, var(--danger), #dc2626)', 
+              boxShadow: isTransmitting ? 'none' : '0 15px 35px rgba(239, 68, 68, 0.3)', 
+              border: 'none', 
+              color: 'white', 
+              cursor: isTransmitting ? 'not-allowed' : 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              gap: '1rem' 
+            }}
           >
-            <LuSend size={24} /> TRANSMIT INCIDENT
+            {isTransmitting ? (
+              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1 }}>
+                <LuSend size={24} />
+              </motion.div>
+            ) : (
+              <LuSend size={24} />
+            )}
+            {isTransmitting ? 'TRANSMITTING...' : 'TRANSMIT INCIDENT'}
           </button>
         </div>
       </form>

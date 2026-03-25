@@ -520,7 +520,9 @@ export interface Toast {
 
 export interface FieldIncident {
   id: string;
+  title: string;
   employeeId: string;
+  userId?: string;
   locationId: string;
   type: 'Maintenance' | 'Safety' | 'Supply' | 'Other';
   severity: 'Low' | 'Medium' | 'High' | 'Critical';

@@ -457,8 +457,8 @@ export const useStore = create<AppState>()((set, get) => ({
     lowStockNotifiedProducts: [],
     supportTickets: [],
     fieldIncidents: [
-      { id: 'inc-1', employeeId: 'emp-001', locationId: '11111111-2222-4000-8000-000000000001', type: 'Maintenance', severity: 'Medium', description: 'Leaking pipe in the main cafeteria area.', status: 'Open', timestamp: new Date(Date.now() - 86400000).toISOString() },
-      { id: 'inc-2', employeeId: 'emp-002', locationId: '11111111-2222-4000-8000-000000000002', type: 'Safety', severity: 'High', description: 'Slippery floor near the loading bay, no warning signs found.', status: 'In Progress', timestamp: new Date(Date.now() - 3600000).toISOString() }
+      { id: 'inc-1', title: 'Maintenance Incident Reported', employeeId: 'emp-001', locationId: '11111111-2222-4000-8000-000000000001', type: 'Maintenance', severity: 'Medium', description: 'Leaking pipe in the main cafeteria area.', status: 'Open', timestamp: new Date(Date.now() - 86400000).toISOString() },
+      { id: 'inc-2', title: 'Safety Incident Reported', employeeId: 'emp-002', locationId: '11111111-2222-4000-8000-000000000002', type: 'Safety', severity: 'High', description: 'Slippery floor near the loading bay, no warning signs found.', status: 'In Progress', timestamp: new Date(Date.now() - 3600000).toISOString() }
     ],
     employeeShifts: [
       { id: 'sh-1', employeeId: 'emp-001', locationId: '11111111-2222-4000-8000-000000000001', startTime: '2026-03-22T09:00:00Z', endTime: '2026-03-22T17:00:00Z', role: 'Cleaner', status: 'In Progress' },
@@ -1651,7 +1651,8 @@ export const useStore = create<AppState>()((set, get) => ({
       ...incident,
       id: generateUUID(),
       timestamp: new Date().toISOString(),
-      status: 'Open'
+      status: 'Open',
+      title: (incident as any).title || `${incident.type} Incident Reported`
     };
     if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
       await SupabaseService.submitIncident(newIncident);
