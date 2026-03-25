@@ -323,9 +323,26 @@ export const SupabaseService = {
   },
 
   async getEmployees() {
-    const { data, error } = await supabase.from('employees').select('*, company:companies(*), user:users(*)');
+    const { data, error } = await supabase.from('employees').select('*');
     if (error) throw error;
     return snakeToCamel(data) as any[];
+  },
+
+  async addEmployee(employee: any) {
+    const { data, error } = await supabase.from('employees').insert(camelToSnake(employee)).select().single();
+    if (error) throw error;
+    return snakeToCamel(data);
+  },
+
+  async updateEmployee(id: string, updates: any) {
+    const { data, error } = await supabase.from('employees').update(camelToSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
+    return snakeToCamel(data);
+  },
+
+  async deleteEmployee(id: string) {
+    const { error } = await supabase.from('employees').delete().eq('id', id);
+    if (error) throw error;
   },
 
   async getProductBundles() {
@@ -531,7 +548,24 @@ export const SupabaseService = {
     }
 
     const { error } = await supabase.from('attendance_records').insert(payload);
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase Attendance sync failed:', error);
+      throw error;
+    }
+  },
+
+  async submitDailyChecklist(employeeId: string, completedTasks: string[]) {
+    const payload = {
+      employee_id: employeeId,
+      submission_date: new Date().toISOString().split('T')[0],
+      completed_tasks: completedTasks
+    };
+
+    const { error } = await supabase.from('submitted_checklists').upsert(payload, { onConflict: 'employee_id,submission_date' });
+    if (error) {
+      console.error('Supabase Checklist sync failed:', error);
+      throw error;
+    }
   },
 
   async getAttendance(locationId?: string) {
@@ -583,8 +617,9 @@ export const SupabaseService = {
   },
 
   async addSiteProtocol(protocol: any) {
-    const { error } = await supabase.from('site_protocols').insert(camelToSnake(protocol));
+    const { data, error } = await supabase.from('site_protocols').insert(camelToSnake(protocol)).select().single();
     if (error) throw error;
+    return snakeToCamel(data);
   },
 
   async deleteSiteProtocol(id: string) {

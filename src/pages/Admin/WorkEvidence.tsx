@@ -5,7 +5,7 @@ import { Card, Badge, Button, Input } from '../../components/ui';
 import { 
   LuSearch, LuCheck, LuX, 
   LuCamera, LuMessageSquare, LuImage as LuImageIcon,
-  LuFilter, LuClock
+  LuFilter, LuClock, LuRefreshCw
 } from 'react-icons/lu';
 
 const WorkEvidence: React.FC = () => {
@@ -19,6 +19,16 @@ const WorkEvidence: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending');
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const initSupabase = useStore(state => state.initSupabase);
+  const isSupabaseConnected = useStore(state => state.isSupabaseConnected);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await initSupabase();
+    setIsRefreshing(false);
+  };
 
   // Sorting: Pending first, then newest
   const filteredReports = workReports.filter(report => {
@@ -52,6 +62,19 @@ const WorkEvidence: React.FC = () => {
             Visual Task Ledger
           </h1>
           <p style={{ color: 'var(--text-muted)' }}>Audit, verify, and grade photographic evidence submitted by field operatives.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          {isSupabaseConnected && (
+            <Button 
+              variant="ghost" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              style={{ borderRadius: '12px', border: '1px solid var(--primary)', color: 'var(--primary)' }}
+            >
+              <LuRefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} style={{ marginRight: '8px' }} />
+              {isRefreshing ? 'Synchronizing...' : 'Sync with Cloud'}
+            </Button>
+          )}
         </div>
       </header>
 

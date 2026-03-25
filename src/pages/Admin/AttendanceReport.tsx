@@ -8,13 +8,21 @@ import {
   LuUsers,
   LuActivity,
   LuMapPin,
-  LuZap
+  LuZap,
+  LuRefreshCw
 } from 'react-icons/lu';
 import { motion } from 'framer-motion';
 import './Dashboard.css';
 
 const AttendanceReport: React.FC = () => {
-  const { locations, attendanceRecords, employees } = useStore((state: any) => state);
+  const { locations, attendanceRecords, employees, initSupabase, isSupabaseConnected } = useStore((state: any) => state);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await initSupabase();
+    setIsRefreshing(false);
+  };
 
   // Purity Fix: Generate stable random values once
   const [chartRandomHeights] = useState(() => 
@@ -38,9 +46,35 @@ const AttendanceReport: React.FC = () => {
           </h2>
           <p className="text-muted">High-fidelity statistical analysis and real-time occupancy forensics.</p>
         </div>
-        <Badge variant="primary" style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 900 }}>
-          <LuZap size={14} style={{ marginRight: '6px' }} /> LIVE STREAM ACTIVE
-        </Badge>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          {isSupabaseConnected && (
+            <button 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '0.6rem 1.25rem',
+                borderRadius: '12px',
+                border: '1px solid var(--primary)',
+                background: 'transparent',
+                color: 'var(--primary)',
+                fontWeight: 800,
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              className="lift"
+            >
+              <LuRefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+              {isRefreshing ? 'SYNCING...' : 'SYNC WITH CLOUD'}
+            </button>
+          )}
+          <Badge variant="primary" style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', fontWeight: 900 }}>
+            <LuZap size={14} style={{ marginRight: '6px' }} /> LIVE STREAM ACTIVE
+          </Badge>
+        </div>
       </header>
 
       {/* Primary Analytics Grid */}

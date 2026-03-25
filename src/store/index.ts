@@ -372,7 +372,6 @@ export const useStore = create<AppState>()((set, get) => ({
     const url = import.meta.env.VITE_SUPABASE_URL;
     if (!url || url.includes('YOUR_')) return;
 
-    // PERFORM REACHABILITY PROBE
     const isReachable = await SupabaseService.checkConnection();
     if (!isReachable) {
        console.warn('⚠️ Supabase endpoint unreachable (Local/Remote). Falling back to Mock Ecosystem.');
@@ -381,53 +380,50 @@ export const useStore = create<AppState>()((set, get) => ({
     }
 
     set({ isSupabaseConnected: true });
+    console.log('🔌 Supabase Online: Synchronizing Operational Hub...');
 
+    const fetchData = async (label: string, fetcher: () => Promise<any>, setter: (data: any) => void) => {
+      try {
+        const data = await fetcher();
+        setter(data);
+        console.log(`✅ Synced: ${label}`);
+      } catch (err) {
+        console.error(`❌ Sync Failed [${label}]:`, err);
+      }
+    };
+
+    // Sequential or parallel data hydration
+    await Promise.all([
+      fetchData('Products', () => SupabaseService.getProducts(), (products) => set({ products })),
+      fetchData('Companies', () => SupabaseService.getCompanies(), (companies) => set({ companies })),
+      fetchData('Orders', () => SupabaseService.getOrders(), (orders) => set({ orders })),
+      fetchData('Locations', () => SupabaseService.getLocations(), (locations) => set({ locations })),
+      fetchData('Inventory', () => SupabaseService.getInventory(), (inventory) => set({ inventory })),
+      fetchData('Contracts', () => SupabaseService.getContracts(), (contracts) => set({ contracts })),
+      fetchData('Bundles', () => SupabaseService.getProductBundles(), (productBundles) => set({ productBundles })),
+      fetchData('Exceptions', () => SupabaseService.getExceptions(), (exceptions) => set({ exceptions })),
+      fetchData('Fraud Flags', () => SupabaseService.getFraudFlags(), (fraudFlags) => set({ fraudFlags })),
+      fetchData('Compliance', () => SupabaseService.getComplianceDocs(), (complianceDocs) => set({ complianceDocs })),
+      fetchData('Incidents', () => SupabaseService.getIncidents(), (fieldIncidents) => set({ fieldIncidents })),
+      fetchData('Work Reports', () => SupabaseService.getWorkReports(), (workReports) => set({ workReports })),
+      fetchData('Attendance', () => SupabaseService.getAttendance(), (attendanceRecords) => set({ attendanceRecords })),
+      fetchData('Users', () => SupabaseService.getUsers(), (users) => set({ users })),
+      fetchData('Employees', () => SupabaseService.getEmployees(), (employees) => set({ employees })),
+      fetchData('Time Off', () => SupabaseService.getTimeOffRequests(), (timeOffRequests) => set({ timeOffRequests })),
+      fetchData('Custom Roles', () => SupabaseService.getCustomRoles(), (customRoles) => set({ customRoles })),
+      fetchData('Assignments', () => SupabaseService.getWorkAssignments(), (workAssignments) => set({ workAssignments })),
+      fetchData('Protocols', () => SupabaseService.getSiteProtocols(), (siteProtocols) => set({ siteProtocols })),
+    ]);
+
+    // If we have a session, set current user
     try {
-      const [
-        products, companies, orders, locations, inventory, 
-        contracts, bundles, exceptions, fraudFlags, 
-        complianceDocs, incidents, workReports, attendance,
-        users, employees, timeOff, roles, assignments, protocols
-      ] = await Promise.all([
-        SupabaseService.getProducts(),
-        SupabaseService.getCompanies(),
-        SupabaseService.getOrders(),
-        SupabaseService.getLocations(),
-        SupabaseService.getInventory(),
-        SupabaseService.getContracts(),
-        SupabaseService.getProductBundles(),
-        SupabaseService.getExceptions(),
-        SupabaseService.getFraudFlags(),
-        SupabaseService.getComplianceDocs(),
-        SupabaseService.getIncidents(),
-        SupabaseService.getWorkReports(),
-        SupabaseService.getAttendance(),
-        SupabaseService.getUsers(),
-        SupabaseService.getEmployees(),
-        SupabaseService.getTimeOffRequests(),
-        SupabaseService.getCustomRoles(),
-        SupabaseService.getWorkAssignments(),
-        SupabaseService.getSiteProtocols()
-      ]);
-      
-      set({ 
-        products, companies, orders, locations, inventory, 
-        contracts, productBundles: bundles, exceptions, fraudFlags, 
-        complianceDocs, fieldIncidents: incidents, workReports, 
-        attendanceRecords: attendance,
-        users, employees, 
-        timeOffRequests: timeOff,
-        customRoles: roles,
-        workAssignments: assignments,
-        siteProtocols: protocols
-      });
-      
-      // If we have a session, set current user
       const currentUser = await SupabaseService.getCurrentUser();
-      if (currentUser) set({ currentUser });
-
-    } catch (err) {
-      console.error('Failed to init Supabase data', err);
+      if (currentUser) {
+        set({ currentUser });
+        console.log(`👤 Auth Verified: ${currentUser.name}`);
+      }
+    } catch (e) {
+      console.warn('Current user verification skipped.');
     }
   },
 
@@ -2140,13 +2136,14 @@ export const useStore = create<AppState>()((set, get) => ({
   submitWorkReport: async (report, file) => {
     let finalImageUrl = report.imageUrl || '';
 
-    // Hardening Section: Handle real file uploads for persistent work evidence
+    // 1. Handle File Upload if present
     if (file && import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
       try {
         const path = `work-reports/${generateUUID()}-${file.name}`;
         finalImageUrl = await SupabaseService.uploadFile('work-reports', path, file);
       } catch (e) {
-        get().addAlert({ message: 'Work evidence transmission failed. Data stored in local session.', type: 'error' });
+        console.error('File upload failed:', e);
+        get().addAlert({ message: 'Evidence upload failed. Proceeding with metadata only.', type: 'warning' });
       }
     }
 
@@ -2157,11 +2154,21 @@ export const useStore = create<AppState>()((set, get) => ({
       status: 'pending',
       imageUrl: finalImageUrl
     };
-    if (get().isSupabaseConnected) {
-      await (SupabaseService as any).submitWorkReport?.(newReport);
-    }
+
+    // 2. Optimistic Local Update
     set(state => ({ workReports: [newReport, ...state.workReports] }));
-    get().addAlert({ message: 'Work report submitted for review.', type: 'success' });
+    get().addAlert({ message: 'Work report logged locally.', type: 'info' });
+
+    // 3. Background Sync
+    if (get().isSupabaseConnected) {
+      try {
+        await SupabaseService.submitWorkReport(newReport);
+        get().addAlert({ message: 'Work report synchronized with cloud.', type: 'success' });
+      } catch (e) {
+        console.error('Supabase Sync Failed [WorkReport]:', e);
+        get().addAlert({ message: 'Sync failed. Data stored in local cache.', type: 'error' });
+      }
+    }
   },
   approveWorkReport: async (reportId, supervisorId) => {
     set(state => ({
@@ -2212,11 +2219,16 @@ export const useStore = create<AppState>()((set, get) => ({
           status: matchScore >= 90 ? 'verified' : 'pending',
           metadata: { ...activeRecord.metadata, ...metadata }
         } as AttendanceRecord;
+        
         set(state => ({
           attendanceRecords: state.attendanceRecords.map(r => r.id === activeRecord.id ? updated : r)
         }));
+
         if (get().isSupabaseConnected) {
-          await SupabaseService.updateAttendanceRecord(activeRecord.id, updated);
+          SupabaseService.updateAttendanceRecord(activeRecord.id, updated).catch(e => {
+            console.error('Attendance Sync Failed [Out]:', e);
+            get().addAlert({ message: 'Offline: Attendance sync deferred.', type: 'warning' });
+          });
         }
       }
     } else {
@@ -2234,9 +2246,14 @@ export const useStore = create<AppState>()((set, get) => ({
         status: matchScore >= 90 ? 'verified' : 'pending',
         metadata: metadata || {}
       };
+      
       set(state => ({ attendanceRecords: [...state.attendanceRecords, newRecord] }));
+
       if (get().isSupabaseConnected) {
-        await SupabaseService.submitAttendance(newRecord);
+        SupabaseService.submitAttendance(newRecord).catch(e => {
+          console.error('Attendance Sync Failed [In]:', e);
+          get().addAlert({ message: 'Offline: Attendance sync deferred.', type: 'warning' });
+        });
       }
     }
 
@@ -2351,12 +2368,23 @@ export const useStore = create<AppState>()((set, get) => ({
 
   submitDailyChecklist: async (employeeId) => {
     const today = new Date().toISOString();
+    const completedTasks = get().dailyTaskProgress[employeeId] || [];
+    
     set(state => ({
       submittedChecklists: {
         ...state.submittedChecklists,
         [employeeId]: today
       }
     }));
+
+    if (get().isSupabaseConnected) {
+      try {
+        await SupabaseService.submitDailyChecklist(employeeId, completedTasks);
+      } catch (e) {
+        console.error('Failed to sync checklist to Supabase:', e);
+      }
+    }
+
     get().addAlert({ message: 'Daily Operations Checklist Submitted Successfully!', type: 'success' });
   },
 

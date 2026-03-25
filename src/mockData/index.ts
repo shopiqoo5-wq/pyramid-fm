@@ -30,9 +30,9 @@ export const mockPricing: ClientPricing[] = [
 ];
 
 export const mockInventory: InventoryItem[] = [
-  { id: generateUUID(), productId: '11111111-1111-4000-8000-000000000001', warehouseId: 'w1', quantity: 150, availableQuantity: 150, reservedQuantity: 0, inTransitQuantity: 0, lowStockThreshold: 20 },
-  { id: generateUUID(), productId: '11111111-1111-4000-8000-000000000002', warehouseId: 'w1', quantity: 200, availableQuantity: 200, reservedQuantity: 0, inTransitQuantity: 0, lowStockThreshold: 50 },
-  { id: generateUUID(), productId: '11111111-1111-4000-8000-000000000003', warehouseId: 'w1', quantity: 500, availableQuantity: 500, reservedQuantity: 0, inTransitQuantity: 0, lowStockThreshold: 100 },
+  { id: generateUUID(), productId: '11111111-1111-4000-8000-000000000001', warehouseId: 'f1111111-1111-4111-8111-000000000001', quantity: 150, availableQuantity: 150, reservedQuantity: 0, inTransitQuantity: 0, lowStockThreshold: 20 },
+  { id: generateUUID(), productId: '11111111-1111-4000-8000-000000000002', warehouseId: 'f1111111-1111-4111-8111-000000000001', quantity: 200, availableQuantity: 200, reservedQuantity: 0, inTransitQuantity: 0, lowStockThreshold: 50 },
+  { id: generateUUID(), productId: '11111111-1111-4000-8000-000000000003', warehouseId: 'f1111111-1111-4111-8111-000000000001', quantity: 500, availableQuantity: 500, reservedQuantity: 0, inTransitQuantity: 0, lowStockThreshold: 100 },
 ];
 
 export const mockOrders: Order[] = [
@@ -89,12 +89,12 @@ export const mockEmployees: Employee[] = [
 ];
 
 export const mockAttendance: AttendanceRecord[] = [
-  { id: 'att-001', employeeId: 'e1111111-1111-4111-8111-000000000001', checkIn: new Date(Date.now() - 3600000).toISOString(), imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop' }
+  { id: 'a1111111-1111-4111-8111-000000000001', employeeId: 'e1111111-1111-4111-8111-000000000001', checkIn: new Date(Date.now() - 3600000).toISOString(), imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop' }
 ];
 
 export const mockWorkReports: WorkReport[] = [
   { 
-    id: 'rep-001', 
+    id: 'r1111111-1111-4111-8111-000000000001', 
     employeeId: 'e1111111-1111-4111-8111-000000000001', 
     imageUrl: 'https://images.unsplash.com/photo-1584820927498-cafe8c160826?w=200&h=200&fit=crop', 
     remarks: 'Main lobby area sanitized.', 

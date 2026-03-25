@@ -13,7 +13,8 @@ import {
   LuShieldCheck,
   LuDownload,
   LuFileDigit,
-  LuExternalLink
+  LuExternalLink,
+  LuRefreshCw
 } from 'react-icons/lu';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { Card, Button, Table, Modal, Skeleton, Badge } from '../../components/ui';
@@ -28,6 +29,15 @@ const Dashboard: React.FC = () => {
   const attendanceRecords = useStore(state => state.attendanceRecords);
   const workReports = useStore(state => state.workReports);
   const calculateDemandForecast = useStore(state => state.calculateDemandForecast);
+  const initSupabase = useStore(state => state.initSupabase);
+  const isSupabaseConnected = useStore(state => state.isSupabaseConnected);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await initSupabase();
+    setIsRefreshing(false);
+  };
   
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -139,7 +149,18 @@ const Dashboard: React.FC = () => {
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, margin: 0 }}>Unified Tactical Oversight • v2.4.0</p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+           {isSupabaseConnected && (
+             <Button 
+               variant="ghost" 
+               onClick={handleRefresh}
+               disabled={isRefreshing}
+               style={{ border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: '12px' }}
+             >
+               <LuRefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} style={{ marginRight: '8px' }} />
+               {isRefreshing ? 'SYNCING...' : 'SYNC WITH CLOUD'}
+             </Button>
+           )}
            <Button variant="secondary" onClick={() => navigate('/admin/ops-audit')} className="lift shadow-sm">
              <LuActivity size={18} /> System Audit
            </Button>
