@@ -84,6 +84,7 @@ const WorkReports: React.FC = () => {
     try {
       await submitWorkReport({
         employeeId: employee.id,
+        userId: currentUser?.id,
         remarks: reportText,
         imageUrl: imagePreview || '',
       });
@@ -341,7 +342,7 @@ const WorkReports: React.FC = () => {
               </div>
             </div>
 
-            <div style={{ padding: '1rem 0' }}>
+            <div style={{ padding: '1.25rem 0 calc(1.25rem + env(safe-area-inset-bottom, 20px))', background: 'var(--bg-color)', borderTop: '1px solid var(--border)', marginTop: 'auto' }}>
                <Button 
                 onClick={handleReportSubmit}
                 disabled={isCapturing || !reportText || !imagePreview || !locationVerified}

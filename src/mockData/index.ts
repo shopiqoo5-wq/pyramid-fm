@@ -84,8 +84,8 @@ export const mockBundles: ProductBundle[] = [
 ];
 
 export const mockEmployees: Employee[] = [
-  { id: 'emp-001', userId: 'employee-001', name: 'Sameer Kumar', companyId: 'pyramid-workforce-001', locationId: 'l1', role: 'Cleaner' },
-  { id: 'emp-002', userId: 'supervisor-001', name: 'Vikram Singh', companyId: 'pyramid-workforce-001', locationId: 'l1', role: 'Supervisor' }
+  { id: 'emp-001', userId: 'employee-001', name: 'Sameer Kumar', companyId: 'pyramid-workforce-001', locationId: '11111111-2222-4000-8000-000000000001', role: 'Cleaner' },
+  { id: 'emp-002', userId: 'supervisor-001', name: 'Vikram Singh', companyId: 'pyramid-workforce-001', locationId: '11111111-2222-4000-8000-000000000001', role: 'Supervisor' }
 ];
 
 export const mockAttendance: AttendanceRecord[] = [

@@ -16,6 +16,7 @@ const FieldIncident: React.FC = () => {
   const [description, setDescription] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [isTransmitting, setIsTransmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -32,6 +33,7 @@ const FieldIncident: React.FC = () => {
     if (!employee || !currentUser) return;
 
     setIsTransmitting(true);
+    setError(null);
     try {
       await submitIncident({
         employeeId: employee.id,
@@ -45,8 +47,9 @@ const FieldIncident: React.FC = () => {
       });
 
       setSubmitted(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to transmit incident', err);
+      setError(err.message || 'Operation failed. Verify connectivity.');
     } finally {
       setIsTransmitting(false);
     }
@@ -163,6 +166,12 @@ const FieldIncident: React.FC = () => {
         </section>
 
         {/* Action Controls */}
+        {error && (
+          <div style={{ marginBottom: '1.5rem', padding: '1rem', borderRadius: '16px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', fontSize: '0.85rem', fontWeight: 800, border: '1px solid rgba(239, 68, 68, 0.2)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <LuShieldAlert size={18} /> {error}
+          </div>
+        )}
+
         <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr', gap: '1.25rem' }}>
           <div 
             onClick={() => fileInputRef.current?.click()}

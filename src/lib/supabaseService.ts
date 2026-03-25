@@ -461,7 +461,15 @@ export const SupabaseService = {
   },
 
   async submitWorkReport(report: any) {
-    const { error } = await supabase.from('work_reports').insert(camelToSnake(report));
+    // Schema expects user_id instead of employee_id
+    const payload = {
+      ...report,
+      user_id: report.userId || report.employeeId
+    };
+    if (payload.userId) delete payload.userId;
+    if (payload.employeeId) delete payload.employeeId;
+
+    const { error } = await supabase.from('work_reports').insert(camelToSnake(payload));
     if (error) throw error;
   },
 

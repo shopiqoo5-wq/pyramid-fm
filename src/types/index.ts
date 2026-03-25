@@ -386,6 +386,7 @@ export interface AttendanceRecord {
 export interface WorkReport {
   id: string; // report_id
   employeeId: string;
+  userId?: string;
   imageUrl: string;
   remarks: string;
   timestamp: string;

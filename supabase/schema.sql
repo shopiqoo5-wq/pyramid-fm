@@ -709,3 +709,19 @@ CREATE POLICY "Users report incidents" ON public.field_incidents FOR INSERT WITH
 CREATE POLICY "Users view own incidents" ON public.field_incidents FOR SELECT USING ( auth.uid() = user_id );
 CREATE POLICY "Admins manage incidents" ON public.field_incidents FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
 
+-- WORK REPORTS (Operational Evidence)
+CREATE TABLE public.work_reports (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.users(id),
+    employee_id UUID NOT NULL,
+    location_id UUID REFERENCES public.locations(id),
+    remarks TEXT NOT NULL,
+    image_url TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE public.work_reports ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users report work" ON public.work_reports FOR INSERT WITH CHECK ( auth.uid() = user_id );
+CREATE POLICY "Users view own work reports" ON public.work_reports FOR SELECT USING ( auth.uid() = user_id );
+CREATE POLICY "Admins manage work reports" ON public.work_reports FOR ALL USING ( (SELECT role FROM public.users WHERE id = auth.uid()) = 'admin' );
