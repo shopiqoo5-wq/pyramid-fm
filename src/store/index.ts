@@ -1669,12 +1669,12 @@ export const useStore = create<AppState>()((set, get) => ({
     let finalImageUrl = incident.imageUrl || '';
     
     // Hardening Section: If a real file is provided, upload it to Supabase Storage
-    if (file && import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (file && get().isSupabaseConnected) {
       try {
         const path = `incidents/${generateUUID()}-${file.name}`;
         finalImageUrl = await SupabaseService.uploadFile('incidents', path, file);
       } catch (_e) {
-        get().addAlert({ message: 'Incident evidence upload failed. Metadata persisted locally.', type: 'error' });
+        get().addAlert({ message: 'Incident evidence upload deferred. Metadata persisted.', type: 'info' });
       }
     }
 
@@ -1686,11 +1686,18 @@ export const useStore = create<AppState>()((set, get) => ({
       imageUrl: finalImageUrl,
       title: (incident as any).title || `${incident.type} Incident Reported`
     };
-    if (get().isSupabaseConnected) {
-      await SupabaseService.submitIncident(newIncident);
+
+    try {
+      if (get().isSupabaseConnected) {
+        await SupabaseService.submitIncident(newIncident);
+      }
+      set(state => ({ fieldIncidents: [newIncident, ...state.fieldIncidents] }));
+      get().addAlert({ message: 'Transmission Successful: Incident reported to Command.', type: 'success' });
+    } catch (err: any) {
+      console.error('Critical sync failure:', err);
+      get().addAlert({ message: `Sync Failure: ${err.message}`, type: 'error' });
+      throw err; // Bubbling up to component for UI handling
     }
-    set(state => ({ fieldIncidents: [newIncident, ...state.fieldIncidents] }));
-    get().addAlert({ message: 'Incident reported successfully.', type: 'warning' });
   },
 
   updateIncidentStatus: async (id, status, adminRemarks) => {

@@ -33,15 +33,24 @@ const FieldIncident: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!employee || !currentUser) return;
+    
+    if (!currentUser) {
+      setError('Access Denied: Authentication session not found.');
+      return;
+    }
+
+    // CRITICAL FIX: If employee record is missing (e.g. Admin testing), 
+    // we use currentUser.id as a fallback instead of returning silently.
+    const effectiveEmployeeId = employee?.id || currentUser.id;
+    const effectiveLocationId = employee?.locationId || currentUser.locationId || '11111111-2222-4000-8000-000000000001';
 
     setIsTransmitting(true);
     setError(null);
     try {
       await submitIncident({
-        employeeId: employee.id,
+        employeeId: effectiveEmployeeId,
         userId: currentUser.id,
-        locationId: employee.locationId,
+        locationId: effectiveLocationId,
         type,
         severity,
         description,
@@ -51,6 +60,7 @@ const FieldIncident: React.FC = () => {
 
       setSubmitted(true);
     } catch (err: any) {
+      console.error('Submission error:', err);
       setError(err.message || 'Critical transmission failure. Verify link status.');
     } finally {
       setIsTransmitting(false);

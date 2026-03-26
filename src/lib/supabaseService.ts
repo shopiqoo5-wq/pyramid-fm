@@ -478,12 +478,14 @@ export const SupabaseService = {
 
     // Guard: Only proceed if user_id and location_id are valid UUIDs
     if (!isValidUUID(payload.user_id) || (payload.locationId && !isValidUUID(payload.locationId))) {
+       const msg = `Security/Data Integrity Guard: Sync rejected due to invalid identifiers. user_id: ${payload.user_id}`;
        this.reportException({ 
          type: 'System Sync Data Mismatch',
-         severity: 'low',
-         description: `Supabase sync skipped: Invalid UUID(s) in Incident. user_id: ${payload.user_id}, location_id: ${payload.locationId}`
+         severity: 'medium',
+         description: `${msg}, location_id: ${payload.locationId}`
        }).catch(() => {});
-       return; 
+       // Throw error so the frontend catch block can display the failure instead of a silent "success"
+       throw new Error('Mission-critical data synchronization failed. Profile identifiers are invalid.'); 
     }
     // Remove individual properties that are now mapped
     if (payload.userId) delete payload.userId;
