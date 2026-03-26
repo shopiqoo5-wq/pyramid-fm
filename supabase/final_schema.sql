@@ -312,6 +312,7 @@ ON CONFLICT (id) DO NOTHING;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- 1. Sync to public.users (Idempotent)
   INSERT INTO public.users (id, name, email, role, company_id)
   VALUES (
     new.id, 
@@ -319,7 +320,22 @@ BEGIN
     new.email, 
     COALESCE((new.raw_user_meta_data->>'role')::user_role, 'client_staff'),
     (new.raw_user_meta_data->>'company_id')::UUID
-  );
+  ) ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    email = EXCLUDED.email,
+    role = EXCLUDED.role,
+    company_id = EXCLUDED.company_id,
+    updated_at = NOW();
+
+  -- 2. Sync role and company metadata to auth.users to avoid RLS recursion
+  UPDATE auth.users 
+  SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb) || 
+    jsonb_build_object(
+      'role', COALESCE((new.raw_user_meta_data->>'role'), 'client_staff'),
+      'company_id', (new.raw_user_meta_data->>'company_id')
+    )
+  WHERE id = new.id;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -329,10 +345,16 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- HELPER: Check Role (Breaks RLS Recursion)
+-- HELPER: Check Role (Breaks RLS Recursion via JWT Metadata)
 CREATE OR REPLACE FUNCTION public.is_admin() 
 RETURNS BOOLEAN AS $$
 BEGIN
+  -- 1. Check JWT metadata (High performance, No recursion)
+  IF (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin' THEN
+    RETURN TRUE;
+  END IF;
+
+  -- 2. Fallback to DB check (SECURITY DEFINER bypasses RLS)
   RETURN EXISTS (
     SELECT 1 FROM public.users 
     WHERE id = auth.uid() 
@@ -376,9 +398,22 @@ CREATE POLICY "Public Read Access" ON public.products FOR SELECT USING (true);
 CREATE POLICY "Public Read Access" ON public.companies FOR SELECT USING (true);
 CREATE POLICY "Authenticated Write Orders" ON public.orders FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
--- USERS POLICIES (Hardened against recursion)
+-- USERS POLICIES (Hardened against recursion using JWT & Security Definer)
 CREATE POLICY "Admins full access" ON public.users FOR ALL USING (public.is_admin());
 CREATE POLICY "Users see own profile" ON public.users FOR SELECT USING (auth.uid() = id);
+
+-- 7.5. MIGRATION: Sync existing users' roles to auth.users metadata (To apply RLS fixes immediately)
+DO $$ 
+DECLARE
+  u RECORD;
+BEGIN
+  FOR u IN SELECT id, role, company_id FROM public.users LOOP
+    UPDATE auth.users 
+    SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb) || 
+      jsonb_build_object('role', u.role::text, 'company_id', u.company_id::text)
+    WHERE id = u.id;
+  END LOOP;
+END $$;
 
 -- STORAGE POLICIES
 CREATE POLICY "Public Read Storage" ON storage.objects FOR SELECT USING (true);
