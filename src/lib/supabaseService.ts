@@ -1,236 +1,194 @@
 import { supabase } from './supabase';
-import { snakeToCamel, camelToSnake, isValidUUID } from './supabaseUtils';
-import type { Product, Order, Company, InventoryItem } from '../types';
+import { snakeToCamel, camelToSnake } from './supabaseUtils';
+import type { Product, Order, Company, InventoryItem, User } from '../types';
 
+/**
+ * SUPABASE SERVICE
+ * Native integration for PostgreSQL operations via PostgREST.
+ */
 export const SupabaseService = {
   // --- AUTH ---
-  async getCurrentUser() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-    const { data: profile } = await supabase
-      .from('users')
-      .select('*, company:companies(*)')
-      .eq('id', user.id)
-      .single();
-    return profile ? snakeToCamel(profile) : null;
-  },
-
   async checkConnection() {
     try {
-      // Lightweight check: just try to get the session/client health
-      const { error } = await supabase.from('users').select('id', { count: 'exact', head: true }).limit(1);
-      if (error) {
-        // If it's a network error (failed to fetch), the error won't even have a status
-        if (error.message?.includes('FetchError') || error.message?.includes('Failed to fetch')) {
-          return false;
-        }
-        // Other Postgres errors mean it IS reachable but maybe misconfigured
-        return true;
-      }
-      return true;
-    } catch (_e: any) {
+      const { error } = await supabase.from('products').select('id').limit(1);
+      return !error;
+    } catch (_e) {
       return false;
     }
   },
 
+  async getCurrentUser(): Promise<User | null> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return null;
+      
+      const { data: profile } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+        
+      return profile ? snakeToCamel(profile) : null;
+    } catch (_e) {
+      return null;
+    }
+  },
+
   async getUsers() {
-    const { data, error } = await supabase.from('users').select('*');
-    if (error) throw error;
-    return snakeToCamel(data) as any[];
+    const { data } = await supabase.from('users').select('*');
+    return snakeToCamel(data || []);
   },
 
   // --- PRODUCTS ---
   async getProducts() {
-    const { data, error } = await supabase.from('products').select('*').eq('active', true);
-    if (error) throw error;
-    return snakeToCamel(data) as Product[];
+    const { data } = await supabase.from('products').select('*').eq('active', true);
+    return snakeToCamel(data || []) as Product[];
   },
 
   async addProduct(product: Omit<Product, 'id'>) {
-    const { data, error } = await supabase.from('products').insert(camelToSnake(product)).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('products').insert(camelToSnake(product)).select().single();
     return snakeToCamel(data) as Product;
   },
 
   async updateProduct(id: string, updates: Partial<Product>) {
-    const { data, error } = await supabase.from('products').update(camelToSnake(updates)).eq('id', id).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('products').update(camelToSnake(updates)).eq('id', id).select().single();
     return snakeToCamel(data) as Product;
   },
 
   async deleteProduct(id: string) {
-    const { error } = await supabase.from('products').delete().eq('id', id);
-    if (error) throw error;
+    await supabase.from('products').delete().eq('id', id);
   },
 
   // --- COMPANIES ---
   async getCompanies() {
-    const { data, error } = await supabase.from('companies').select('*');
-    if (error) throw error;
-    return snakeToCamel(data) as Company[];
+    const { data } = await supabase.from('companies').select('*');
+    return snakeToCamel(data || []) as Company[];
   },
 
   async addCompany(company: Omit<Company, 'id'>) {
-    const { data, error } = await supabase.from('companies').insert(camelToSnake(company)).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('companies').insert(camelToSnake(company)).select().single();
     return snakeToCamel(data) as Company;
   },
 
   async updateCompany(id: string, updates: Partial<Company>) {
-    const { data, error } = await supabase.from('companies').update(camelToSnake(updates)).eq('id', id).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('companies').update(camelToSnake(updates)).eq('id', id).select().single();
     return snakeToCamel(data) as Company;
   },
 
   async deleteCompany(id: string) {
-    const { error } = await supabase.from('companies').delete().eq('id', id);
-    if (error) throw error;
+    await supabase.from('companies').delete().eq('id', id);
   },
 
   // --- LOCATIONS ---
   async getLocations(companyId?: string) {
     let query = supabase.from('locations').select('*');
     if (companyId) query = query.eq('company_id', companyId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return snakeToCamel(data) as any[];
+    const { data } = await query;
+    return snakeToCamel(data || []);
   },
 
   async addLocation(location: any) {
-    const { data, error } = await supabase.from('locations').insert(camelToSnake(location)).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('locations').insert(camelToSnake(location)).select().single();
     return snakeToCamel(data);
   },
 
   async updateLocation(id: string, updates: any) {
-    const { data, error } = await supabase.from('locations').update(camelToSnake(updates)).eq('id', id).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('locations').update(camelToSnake(updates)).eq('id', id).select().single();
     return snakeToCamel(data);
   },
 
   async deleteLocation(id: string) {
-    const { error } = await supabase.from('locations').delete().eq('id', id);
-    if (error) throw error;
+    await supabase.from('locations').delete().eq('id', id);
   },
 
   // --- ORDERS ---
   async getOrders(companyId?: string) {
-    let query = supabase.from('orders').select('*, order_items(*, product:products(*))');
+    let query = supabase.from('orders').select('*');
     if (companyId) query = query.eq('company_id', companyId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return snakeToCamel(data) as Order[];
+    const { data } = await query;
+    return snakeToCamel(data || []) as Order[];
   },
 
   async placeOrder(order: any) {
-    // 1. Insert Order
-    const { data: orderData, error: orderError } = await supabase
-      .from('orders')
-      .insert(camelToSnake({
-        ...order,
-        items: undefined // items go to order_items
-      }))
-      .select()
-      .single();
-
-    if (orderError) throw orderError;
-
-    // 2. Insert Order Items
-    const items = order.items.map((item: any) => camelToSnake({
-      ...item,
-      orderId: orderData.id
-    }));
-
-    const { error: itemsError } = await supabase.from('order_items').insert(items);
-    if (itemsError) throw itemsError;
-
-    return snakeToCamel(orderData) as Order;
+    const { data } = await supabase.from('orders').insert(camelToSnake(order)).select().single();
+    return snakeToCamel(data) as Order;
   },
 
   async updateOrderStatus(orderId: string, status: string) {
-    const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
-    if (error) throw error;
+    await supabase.from('orders').update({ status }).eq('id', orderId);
   },
 
   // --- INVENTORY ---
   async getInventory() {
-    const { data, error } = await supabase.from('inventory').select('*');
-    if (error) throw error;
-    return snakeToCamel(data) as InventoryItem[];
+    const { data } = await supabase.from('inventory').select('*');
+    return snakeToCamel(data || []) as InventoryItem[];
   },
 
   async updateStock(productId: string, warehouseId: string, quantity: number) {
-    const { error } = await supabase.rpc('increment_inventory', { 
-      p_id: productId, 
-      w_id: warehouseId, 
-      delta: quantity 
-    });
-    if (error) throw error;
+    await supabase.from('inventory').update({ quantity }).match({ product_id: productId, warehouse_id: warehouseId });
   },
 
   // --- CONTRACTS ---
   async getContracts(companyId?: string) {
     let query = supabase.from('contracts').select('*');
     if (companyId) query = query.eq('company_id', companyId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return snakeToCamel(data);
+    const { data } = await query;
+    return snakeToCamel(data || []);
   },
 
   async addContract(contract: any) {
-    const { data, error } = await supabase.from('contracts').insert(camelToSnake(contract)).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('contracts').insert(camelToSnake(contract)).select().single();
     return snakeToCamel(data);
   },
 
   async updateContract(id: string, updates: any) {
-    const { data, error } = await supabase.from('contracts').update(camelToSnake(updates)).eq('id', id).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('contracts').update(camelToSnake(updates)).eq('id', id).select().single();
     return snakeToCamel(data);
   },
 
   async deleteContract(id: string) {
-    const { error } = await supabase.from('contracts').delete().eq('id', id);
-    if (error) throw error;
+    await supabase.from('contracts').delete().eq('id', id);
   },
 
   // --- SUPPORT ---
   async getTickets(companyId?: string) {
-    let query = supabase.from('support_tickets').select('*, messages:ticket_messages(*)');
+    let query = supabase.from('tickets').select('*');
     if (companyId) query = query.eq('company_id', companyId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return snakeToCamel(data);
+    const { data } = await query;
+    return snakeToCamel(data || []);
   },
 
   async createTicket(ticket: any) {
-    const { data, error } = await supabase.from('support_tickets').insert(camelToSnake(ticket)).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('tickets').insert(camelToSnake(ticket)).select().single();
+    return snakeToCamel(data);
+  },
+
+  async updateTicketStatus(id: string, updates: any) {
+    const { data } = await supabase.from('tickets').update(camelToSnake(updates)).eq('id', id).select().single();
+    return snakeToCamel(data);
+  },
+
+  async addTicketMessage(message: any) {
+    const { data } = await supabase.from('ticket_messages').insert(camelToSnake(message)).select().single();
     return snakeToCamel(data);
   },
 
   // --- AUDIT & EXCEPTIONS ---
   async logAction(action: string, details: any) {
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('audit_logs').insert({
-      user_id: user?.id,
-      action,
-      details
-    });
+    await supabase.from('audit_logs').insert({ action, details });
   },
 
   async reportException(exception: any) {
-    await supabase.from('app_exceptions').insert(camelToSnake(exception));
+    await supabase.from('exceptions').insert(camelToSnake(exception));
   },
 
   async resolveException(id: string) {
-    await supabase.from('app_exceptions').update({ status: 'resolved' }).eq('id', id);
+    await supabase.from('exceptions').update({ resolved_at: new Date().toISOString() }).eq('id', id);
   },
 
   async getExceptions() {
-    const { data, error } = await supabase.from('app_exceptions').select('*');
-    if (error) throw error;
-    return snakeToCamel(data);
+    const { data } = await supabase.from('exceptions').select('*');
+    return snakeToCamel(data || []);
   },
 
   // --- FRAUD ---
@@ -243,9 +201,8 @@ export const SupabaseService = {
   },
 
   async getFraudFlags() {
-    const { data, error } = await supabase.from('fraud_flags').select('*');
-    if (error) throw error;
-    return snakeToCamel(data);
+    const { data } = await supabase.from('fraud_flags').select('*');
+    return snakeToCamel(data || []);
   },
 
   // --- COMPLIANCE ---
@@ -260,9 +217,8 @@ export const SupabaseService = {
   async getComplianceDocs(companyId?: string) {
     let query = supabase.from('compliance_docs').select('*');
     if (companyId) query = query.eq('company_id', companyId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return snakeToCamel(data);
+    const { data } = await query;
+    return snakeToCamel(data || []);
   },
 
   // --- FINANCE ---
@@ -271,12 +227,7 @@ export const SupabaseService = {
   },
 
   async updateCompanyCredit(companyId: string, amountDelta: number) {
-    const { data: company } = await supabase.from('companies').select('available_credit').eq('id', companyId).single();
-    if (company) {
-      await supabase.from('companies').update({ 
-        available_credit: Number(company.available_credit) + amountDelta 
-      }).eq('id', companyId);
-    }
+    await supabase.rpc('update_company_credit', { company_id: companyId, delta: amountDelta });
   },
 
   async markOrdersTallyExported(orderIds: string[]) {
@@ -285,411 +236,250 @@ export const SupabaseService = {
 
   // --- USERS ---
   async addUser(user: any) {
-    const { data, error } = await supabase.from('users').insert(camelToSnake(user)).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('users').insert(camelToSnake(user)).select().single();
     return snakeToCamel(data);
   },
 
   async bulkAddUsers(users: any[]) {
-    const { data, error } = await supabase.from('users').insert(users.map(u => camelToSnake(u)));
-    if (error) throw error;
-    return data;
+    return supabase.from('users').insert(users.map(u => camelToSnake(u)));
   },
 
-  // --- TICKETS ---
-  async updateTicketStatus(id: string, updates: any) {
-    const { data, error } = await supabase.from('support_tickets').update(camelToSnake(updates)).eq('id', id).select().single();
-    if (error) throw error;
+  async updateUser(id: string, updates: any) {
+    const { data } = await supabase.from('users').update(camelToSnake(updates)).eq('id', id).select().single();
     return snakeToCamel(data);
   },
 
-  async addTicketMessage(message: any) {
-    const { data, error } = await supabase.from('ticket_messages').insert(camelToSnake(message)).select().single();
-    if (error) throw error;
-    return snakeToCamel(data);
+  async deleteUser(id: string) {
+    await supabase.from('users').delete().eq('id', id);
   },
 
-  // --- CORPORATE GOVERNANCE ---
-  async updateLocationBudget(locationId: string, budget: number) {
-    await supabase.from('locations').update({ monthly_budget: budget }).eq('id', locationId);
+  async updateUserFaceImage(userId: string, imageUrl: string) {
+    await supabase.from('users').update({ face_image_url: imageUrl }).eq('id', userId);
   },
 
-  async updateCompanyBranding(companyId: string, branding: any) {
-    await supabase.from('companies').update({ branding: camelToSnake(branding) }).eq('id', companyId);
-  },
-
-  async updateCompanySettings(companyId: string, settings: any) {
-    await supabase.from('companies').update(camelToSnake(settings)).eq('id', companyId);
-  },
-
+  // --- EMPLOYEES & WORKFORCE ---
   async getEmployees() {
-    const { data, error } = await supabase.from('employees').select('*');
-    if (error) throw error;
-    return snakeToCamel(data) as any[];
+    const { data } = await supabase.from('employees').select('*');
+    return snakeToCamel(data || []);
   },
 
   async addEmployee(employee: any) {
-    const { data, error } = await supabase.from('employees').insert(camelToSnake(employee)).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('employees').insert(camelToSnake(employee)).select().single();
     return snakeToCamel(data);
   },
 
   async updateEmployee(id: string, updates: any) {
-    const { data, error } = await supabase.from('employees').update(camelToSnake(updates)).eq('id', id).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('employees').update(camelToSnake(updates)).eq('id', id).select().single();
     return snakeToCamel(data);
   },
 
   async deleteEmployee(id: string) {
-    const { error } = await supabase.from('employees').delete().eq('id', id);
-    if (error) throw error;
-  },
-
-  async getProductBundles() {
-    const { data, error } = await supabase.from('product_bundles').select('*, items:bundle_items(*, product:products(*))');
-    if (error) throw error;
-    return snakeToCamel(data);
+    await supabase.from('employees').delete().eq('id', id);
   },
 
   // --- BUNDLES ---
+  async getProductBundles() {
+    const { data } = await supabase.from('product_bundles').select('*');
+    return snakeToCamel(data || []);
+  },
+
   async addProductBundle(bundle: any) {
-    const { items, ...bundleData } = bundle;
-    const { data, error } = await supabase.from('product_bundles').insert(camelToSnake(bundleData)).select().single();
-    if (error) throw error;
-    
-    if (items && items.length > 0) {
-      const dbItems = items.map((item: any) => camelToSnake({ ...item, bundleId: data.id }));
-      await supabase.from('bundle_items').insert(dbItems);
-    }
+    const { data } = await supabase.from('product_bundles').insert(camelToSnake(bundle)).select().single();
     return snakeToCamel(data);
   },
 
   async updateProductBundle(id: string, updates: any) {
-    const { data, error } = await supabase.from('product_bundles').update(camelToSnake(updates)).eq('id', id).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('product_bundles').update(camelToSnake(updates)).eq('id', id).select().single();
     return snakeToCamel(data);
   },
 
   async deleteProductBundle(id: string) {
-    const { error } = await supabase.from('product_bundles').delete().eq('id', id);
-    if (error) throw error;
+    await supabase.from('product_bundles').delete().eq('id', id);
   },
 
   // --- RETURNS ---
   async createReturnRequest(req: any) {
-    const { data, error } = await supabase.from('return_requests').insert(camelToSnake(req)).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('return_requests').insert(camelToSnake(req)).select().single();
     return snakeToCamel(data);
   },
 
   async updateReturnStatus(id: string, status: string) {
-    const { error } = await supabase.from('return_requests').update({ status }).eq('id', id);
-    if (error) throw error;
-  },
-
-  // --- BIOMETRICS ---
-  async updateUserFaceImage(userId: string, imageUrl: string) {
-    const { error } = await supabase.from('users').update({ face_image_url: imageUrl }).eq('id', userId);
-    if (error) throw error;
-  },
-
-  async deleteUser(id: string) {
-    const { error } = await supabase.from('users').delete().eq('id', id);
-    if (error) throw error;
-  },
-
-  async updateSettings(settings: any) {
-    const { error } = await supabase.from('global_settings').upsert({ id: 'system', ...camelToSnake(settings) });
-    if (error) throw error;
-  },
-
-  async addQRToken(token: any) {
-    const { error } = await supabase.from('qr_logins').insert(camelToSnake(token));
-    if (error) throw error;
-  },
-
-  async revokeQRToken(id: string) {
-    const { error } = await supabase.from('qr_logins').update({ active: false, status: 'revoked' }).eq('id', id);
-    if (error) throw error;
-  },
-
-  async loginWithQR(token: string) {
-    const { data, error } = await supabase.from('qr_logins')
-      .select('*')
-      .eq('token', token)
-      .eq('active', true)
-      .gte('expires_at', new Date().toISOString())
-      .single();
-    
-    if (data && !error) {
-      const { data: user } = await supabase.from('users').select('*').eq('id', data.user_id).single();
-      return user ? snakeToCamel(user) : null;
-    }
-    return null;
-  },
-
-  async updateUser(id: string, updates: any) {
-    const { data, error } = await supabase.from('users').update(camelToSnake(updates)).eq('id', id).select().single();
-    if (error) throw error;
-    return snakeToCamel(data);
-  },
-
-  // --- PRICING ---
-  async upsertClientPricing(pricing: any) {
-    const { error } = await supabase.from('client_pricing').upsert(camelToSnake(pricing), { onConflict: 'company_id,product_id' });
-    if (error) throw error;
-  },
-
-  // --- BATCHES ---
-  async addBatch(batch: any) {
-    const { error } = await supabase.from('batches').insert(camelToSnake(batch));
-    if (error) throw error;
-  },
-
-  // --- WEBHOOKS ---
-  async addWebhook(webhook: any) {
-    const { error } = await supabase.from('webhooks').insert(camelToSnake(webhook));
-    if (error) throw error;
-  },
-
-  async updateWebhook(id: string, updates: any) {
-    const { error } = await supabase.from('webhooks').update(camelToSnake(updates)).eq('id', id);
-    if (error) throw error;
-  },
-
-  async deleteWebhook(id: string) {
-    const { error } = await supabase.from('webhooks').delete().eq('id', id);
-    if (error) throw error;
-  },
-
-  async toggleWebhookActive(id: string, active: boolean) {
-    const { error } = await supabase.from('webhooks').update({ active }).eq('id', id);
-    if (error) throw error;
+    await supabase.from('return_requests').update({ status }).eq('id', id);
   },
 
   // --- FIELD OPS ---
-  async submitIncident(incident: any) {
-    // Schema expects user_id instead of employee_id and a title
-    const payload = {
-      ...incident,
-      user_id: incident.userId || incident.employeeId, // Fallback to employeeId if userId missing
-      title: incident.title || `${incident.type} Incident Reported`
-    };
+  async getIncidents() {
+    const { data } = await supabase.from('field_incidents').select('*');
+    return snakeToCamel(data || []);
+  },
 
-    // Guard: Only proceed if user_id and location_id are valid UUIDs
-    if (!isValidUUID(payload.user_id) || (payload.locationId && !isValidUUID(payload.locationId))) {
-       const msg = `Security/Data Integrity Guard: Sync rejected due to invalid identifiers. user_id: ${payload.user_id}`;
-       this.reportException({ 
-         type: 'System Sync Data Mismatch',
-         severity: 'medium',
-         description: `${msg}, location_id: ${payload.locationId}`
-       }).catch(() => {});
-       // Throw error so the frontend catch block can display the failure instead of a silent "success"
-       throw new Error('Mission-critical data synchronization failed. Profile identifiers are invalid.'); 
-    }
-    // Remove individual properties that are now mapped
-    if (payload.userId) delete payload.userId;
-    if (payload.employeeId) delete payload.employeeId;
-    if (payload.timestamp) delete payload.timestamp;
-    
-    const { error } = await supabase.from('field_incidents').insert(camelToSnake(payload));
-    if (error) throw error;
+  async submitIncident(incident: any) {
+    await supabase.from('field_incidents').insert(camelToSnake(incident));
   },
 
   async updateIncidentStatus(id: string, updates: any) {
-    const { error } = await supabase.from('field_incidents').update(camelToSnake(updates)).eq('id', id);
-    if (error) throw error;
+    await supabase.from('field_incidents').update(camelToSnake(updates)).eq('id', id);
   },
 
-  async getIncidents() {
-    let query = supabase.from('field_incidents').select('*');
-    const { data, error } = await query;
-    if (error) throw error;
-    return snakeToCamel(data);
+  async getWorkReports() {
+    const { data } = await supabase.from('work_reports').select('*');
+    return snakeToCamel(data || []);
   },
 
   async submitWorkReport(report: any) {
-    // Schema expects user_id instead of employee_id
-    const payload = {
-      ...report,
-      user_id: report.userId || report.employeeId,
-      employee_id: report.employeeId || report.userId,
-      location_id: report.locationId
-    };
-
-    // Guard: Only proceed if mandatory identifiers are valid UUIDs
-    if (!isValidUUID(payload.user_id) || !isValidUUID(payload.employee_id) || (payload.location_id && !isValidUUID(payload.location_id))) {
-       this.reportException({ 
-         type: 'System Sync Data Mismatch',
-         severity: 'low',
-         description: `Supabase sync skipped: Invalid UUID(s) in Work Report. user_id: ${payload.user_id}, employee_id: ${payload.employee_id}, location_id: ${payload.location_id}`
-       }).catch(() => {});
-       return; 
-    }
-
-    if (payload.userId) delete payload.userId;
-    if (payload.employeeId) delete payload.employeeId;
-    if (payload.locationId) delete payload.locationId;
-    if (payload.timestamp) delete payload.timestamp;
-
-    const { error } = await supabase.from('work_reports').insert(camelToSnake(payload));
-    if (error) throw error;
-  },
-
-  async submitAttendance(record: any) {
-    const payload = camelToSnake(record);
-    
-    // Guard: Only proceed if identifiers are valid UUIDs
-    if ((payload.employee_id && !isValidUUID(payload.employee_id)) || (payload.location_id && !isValidUUID(payload.location_id))) {
-      this.reportException({ 
-        type: 'System Sync Data Mismatch',
-        severity: 'low',
-        description: `Supabase sync skipped: Invalid UUID(s) in Attendance. employee_id: ${payload.employee_id}, location_id: ${payload.location_id}`
-      }).catch(() => {});
-      return;
-    }
-
-    const { error } = await supabase.from('attendance_records').insert(payload);
-    if (error) {
-      console.error('Supabase Attendance sync failed:', error);
-      throw error;
-    }
-  },
-
-  async submitDailyChecklist(employeeId: string, completedTasks: string[]) {
-    const payload = {
-      employee_id: employeeId,
-      submission_date: new Date().toISOString().split('T')[0],
-      completed_tasks: completedTasks
-    };
-
-    const { error } = await supabase.from('submitted_checklists').upsert(payload, { onConflict: 'employee_id,submission_date' });
-    if (error) {
-      console.error('Supabase Checklist sync failed:', error);
-      throw error;
-    }
+    await supabase.from('work_reports').insert(camelToSnake(report));
   },
 
   async getAttendance(locationId?: string) {
     let query = supabase.from('attendance_records').select('*');
     if (locationId) query = query.eq('location_id', locationId);
-    const { data, error } = await query;
-    if (error) throw error;
-    return snakeToCamel(data);
+    const { data } = await query;
+    return snakeToCamel(data || []);
+  },
+
+  async submitAttendance(record: any) {
+    await supabase.from('attendance_records').insert(camelToSnake(record));
+  },
+
+  async submitDailyChecklist(employeeId: string, completedTasks: string[]) {
+    await supabase.from('daily_checklists').insert({ employee_id: employeeId, completed_tasks: completedTasks });
   },
 
   async updateAttendanceRecord(id: string, updates: any) {
-    const { error } = await supabase.from('attendance_records').update(camelToSnake(updates)).eq('id', id);
-    if (error) throw error;
+    await supabase.from('attendance_records').update(camelToSnake(updates)).eq('id', id);
   },
 
   async deleteAttendanceRecord(id: string) {
-    const { error } = await supabase.from('attendance_records').delete().eq('id', id);
-    if (error) throw error;
-  },
-
-  async getWorkReports() {
-    const { data, error } = await supabase.from('work_reports').select('*');
-    if (error) throw error;
-    return snakeToCamel(data);
+    await supabase.from('attendance_records').delete().eq('id', id);
   },
 
   // --- TIME OFF ---
   async getTimeOffRequests() {
-    const { data, error } = await supabase.from('time_off_requests').select('*').order('created_at', { ascending: false });
-    if (error) throw error;
-    return snakeToCamel(data) as any[];
+    const { data } = await supabase.from('time_off_requests').select('*');
+    return snakeToCamel(data || []);
   },
 
   async submitTimeOffRequest(request: any) {
-    const { error } = await supabase.from('time_off_requests').insert(camelToSnake(request));
-    if (error) throw error;
+    await supabase.from('time_off_requests').insert(camelToSnake(request));
   },
 
   async updateTimeOffStatus(id: string, updates: any) {
-    const { error } = await supabase.from('time_off_requests').update(camelToSnake(updates)).eq('id', id);
-    if (error) throw error;
+    await supabase.from('time_off_requests').update(camelToSnake(updates)).eq('id', id);
   },
 
   // --- PROTOCOLS ---
   async getSiteProtocols() {
-    const { data, error } = await supabase.from('site_protocols').select('*');
-    if (error) throw error;
-    return snakeToCamel(data) as any[];
+    const { data } = await supabase.from('site_protocols').select('*');
+    return snakeToCamel(data || []);
   },
 
   async addSiteProtocol(protocol: any) {
-    const { data, error } = await supabase.from('site_protocols').insert(camelToSnake(protocol)).select().single();
-    if (error) throw error;
+    const { data } = await supabase.from('site_protocols').insert(camelToSnake(protocol)).select().single();
     return snakeToCamel(data);
   },
 
   async deleteSiteProtocol(id: string) {
-    const { error } = await supabase.from('site_protocols').delete().eq('id', id);
-    if (error) throw error;
+    await supabase.from('site_protocols').delete().eq('id', id);
   },
 
   // --- ROLES & ASSIGNMENTS ---
   async getCustomRoles() {
-    const { data, error } = await supabase.from('custom_roles').select('*');
-    if (error) throw error;
-    return snakeToCamel(data) as any[];
+    const { data } = await supabase.from('custom_roles').select('*');
+    return snakeToCamel(data || []);
   },
 
   async addCustomRole(role: any) {
-    const { error } = await supabase.from('custom_roles').insert(camelToSnake(role));
-    if (error) throw error;
+    await supabase.from('custom_roles').insert(camelToSnake(role));
   },
 
   async updateCustomRole(id: string, updates: any) {
-    const { error } = await supabase.from('custom_roles').update(camelToSnake(updates)).eq('id', id);
-    if (error) throw error;
+    await supabase.from('custom_roles').update(camelToSnake(updates)).eq('id', id);
   },
 
   async deleteCustomRole(id: string) {
-    const { error } = await supabase.from('custom_roles').delete().eq('id', id);
-    if (error) throw error;
+    await supabase.from('custom_roles').delete().eq('id', id);
   },
 
   async getWorkAssignments() {
-    const { data, error } = await supabase.from('work_assignments').select('*');
-    if (error) throw error;
-    return snakeToCamel(data) as any[];
+    const { data } = await supabase.from('work_assignments').select('*');
+    return snakeToCamel(data || []);
   },
 
   async addWorkAssignment(assignment: any) {
-    const { error } = await supabase.from('work_assignments').insert(camelToSnake(assignment));
-    if (error) throw error;
+    await supabase.from('work_assignments').insert(camelToSnake(assignment));
   },
 
   async updateWorkAssignment(id: string, updates: any) {
-    const { error } = await supabase.from('work_assignments').update(camelToSnake(updates)).eq('id', id);
-    if (error) throw error;
+    await supabase.from('work_assignments').update(camelToSnake(updates)).eq('id', id);
   },
 
   async deleteWorkAssignment(id: string) {
-    const { error } = await supabase.from('work_assignments').delete().eq('id', id);
-    if (error) throw error;
+    await supabase.from('work_assignments').delete().eq('id', id);
+  },
+
+  // --- PRICING & SETTINGS ---
+  async upsertClientPricing(pricing: any) {
+    await supabase.from('client_pricing').upsert(camelToSnake(pricing));
+  },
+
+  async updateSettings(settings: any) {
+    await supabase.from('settings').upsert(camelToSnake(settings));
+  },
+
+  async updateLocationBudget(locationId: string, budget: number) {
+    await supabase.from('locations').update({ monthly_budget: budget }).eq('id', locationId);
+  },
+
+  async updateCompanyBranding(companyId: string, branding: any) {
+    await supabase.from('companies').update({ branding }).eq('id', companyId);
+  },
+
+  async updateCompanySettings(companyId: string, settings: any) {
+    await supabase.from('companies').update({ settings }).eq('id', companyId);
+  },
+
+  // --- QR LOGINS ---
+  async addQRToken(token: any) {
+    await supabase.from('qr_tokens').insert(camelToSnake(token));
+  },
+
+  async revokeQRToken(id: string) {
+    await supabase.from('qr_tokens').update({ revoked: true }).eq('id', id);
+  },
+
+  async loginWithQR(token: string) {
+    const { data } = await supabase.rpc('login_with_qr', { token_str: token });
+    return data ? snakeToCamel(data) : null;
+  },
+
+  // --- BATCHES ---
+  async addBatch(batch: any) {
+    await supabase.from('batches').insert(camelToSnake(batch));
+  },
+
+  // --- WEBHOOKS ---
+  async addWebhook(webhook: any) {
+    await supabase.from('webhooks').insert(camelToSnake(webhook));
+  },
+
+  async updateWebhook(id: string, updates: any) {
+    await supabase.from('webhooks').update(camelToSnake(updates)).eq('id', id);
+  },
+
+  async deleteWebhook(id: string) {
+    await supabase.from('webhooks').delete().eq('id', id);
+  },
+
+  async toggleWebhookActive(id: string, active: boolean) {
+    await supabase.from('webhooks').update({ active }).eq('id', id);
   },
 
   // --- STORAGE & UTILS ---
   async uploadFile(bucket: string, path: string, file: File | Blob) {
-    try {
-      // 1. Check if bucket exists/is accessible (Optional but defensive)
-      const { data: uploadData, error: uploadError } = await Promise.race([
-        supabase.storage.from(bucket).upload(path, file, { cacheControl: '3600', upsert: true }),
-        new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Persistent storage heartbeat timed out.')), 10000))
-      ]);
-
-      if (uploadError) throw uploadError;
-      
-      // 2. Resolve Public URL
-      const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(uploadData.path);
-      return publicUrl;
-    } catch (err) {
-      console.error(`Storage disruption [${bucket}]:`, err);
-      throw err; // Re-throw to let the store handle fallback
-    }
+    const { data, error } = await supabase.storage.from(bucket).upload(path, file);
+    if (error) throw error;
+    const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(data.path);
+    return publicUrl;
   },
 
   base64ToBlob(base64: string, type: string = 'image/jpeg') {

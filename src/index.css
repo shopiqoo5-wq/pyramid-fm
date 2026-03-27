@@ -6,80 +6,40 @@
    ============================================================ */
 
 :root {
-  /* Brand Color */
-  --primary-h: 220;
-  --primary-s: 90%;
-  --primary-l: 54%;
+  /* Brand Color - High Definition */
+  --primary-h: 228;
+  --primary-s: 100%;
+  --primary-l: 60%;
   --primary: hsl(var(--primary-h), var(--primary-s), var(--primary-l));
-  --primary-light: hsl(var(--primary-h), var(--primary-s), 94%);
-  --primary-dark: hsl(var(--primary-h), var(--primary-s), 44%);
-  --primary-hover: hsl(var(--primary-h), var(--primary-s), 44%);
-  --primary-glow: hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.25);
+  --primary-rgb: 45, 95, 255;
+  --primary-light: hsl(var(--primary-h), var(--primary-s), 96%);
+  --primary-dark: hsl(var(--primary-h), var(--primary-s), 45%);
+  --primary-glow: hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.15);
 
-  --secondary: hsl(261, 72%, 60%);
-  --accent: hsl(160, 84%, 39%);
+  --secondary: #7c3aed;
+  --accent: #06b6d4;
+  
+  /* Modern Gradient Tokens */
+  --grad-premium: linear-gradient(135deg, #2d5fff 0%, #7c3aed 100%);
+  --grad-surface: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+  --grad-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03));
 
   /* Semantic colors */
   --success: #10b981;
-  --success-bg: #d1fae5;
   --warning: #f59e0b;
-  --warning-bg: #fef3c7;
   --danger: #ef4444;
-  --danger-bg: #fee2e2;
   --info: #3b82f6;
-  --info-bg: #dbeafe;
 
-  /* ── LIGHT THEME (default) ── */
-  --bg-color: #f0f4f8;
+  /* ── LIGHT THEME ── */
+  --bg-color: #f8fafc;
   --surface: #ffffff;
-  --surface-hover: #f8fafc;
-  --surface-raised: #ffffff;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-
+  --surface-hover: #f1f5f9;
+  --border: rgba(0, 0, 0, 0.08);
   --text-main: #0f172a;
-  --text-sub: #334155;
   --text-muted: #64748b;
-  --text-dim: #94a3b8;
 
-  /* Shadows – Light */
-  --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -2px rgba(0,0,0,0.04);
-  --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.08), 0 10px 10px -5px rgba(0,0,0,0.03);
-  --shadow-premium:
-    0 1px 2px rgba(0,0,0,0.04),
-    0 4px 8px rgba(0,0,0,0.04),
-    0 12px 24px rgba(0,0,0,0.06);
-
-  --surface-glass: rgba(248, 250, 252, 0.85);
-  --border-glass: rgba(255, 255, 255, 0.6);
-  --glass-bg: var(--surface-glass);
-  --glass-border: var(--border-glass);
-  --glass-blur: blur(32px);
-
-  /* Layout */
-  --sidebar-width-open: 272px;
-  --sidebar-width-closed: 0px;
-  --topbar-height: 68px;
-  --gutter-side: 2rem;
-  --gutter-side-mobile: 1.25rem;
-
-  /* Radii */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
-  --radius-2xl: 24px;
-  --radius-full: 9999px;
-
-  /* Transitions */
-  --transition-fast: 0.15s ease;
-  --transition-normal: 0.25s ease;
-  --transition-premium: 0.35s cubic-bezier(0.23, 1, 0.32, 1);
-  --transition-bounce: 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+  --glass-blur: blur(20px);
 }
 
 /* ── DARK THEME ── */
@@ -273,25 +233,25 @@ input, select, textarea {
    UTILITY CLASSES
    ============================================================ */
 .text-gradient {
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  background: var(--grad-premium);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  font-weight: 800;
 }
 
-.text-muted { color: var(--text-muted); }
-.font-medium { font-weight: 500; }
-.font-semibold { font-weight: 600; }
-
-.glass-surface {
-  background: var(--glass-bg);
+.glass-card {
+  background: var(--grad-glass);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-premium);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.lift {
-  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+.glass-card:hover {
+  transform: translateY(-5px) scale(1.02);
 }
 .lift:hover {
   transform: translateY(-3px);

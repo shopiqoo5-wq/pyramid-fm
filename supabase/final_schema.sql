@@ -296,6 +296,14 @@ CREATE TABLE IF NOT EXISTS public.field_incidents (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- DAILY CHECKLISTS
+CREATE TABLE IF NOT EXISTS public.daily_checklists (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+    completed_tasks TEXT[] DEFAULT '{}',
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 6. SYSTEM INTELLIGENCE & INFRASTRUCTURE
 -- STORAGE BUCKETS
 INSERT INTO storage.buckets (id, name, public)
@@ -354,14 +362,14 @@ BEGIN
     RETURN TRUE;
   END IF;
 
-  -- 2. Fallback to DB check (SECURITY DEFINER bypasses RLS)
+  -- 2. Fallback to auth schema check (Bypasses public.users RLS)
   RETURN EXISTS (
-    SELECT 1 FROM public.users 
+    SELECT 1 FROM auth.users 
     WHERE id = auth.uid() 
-    AND role = 'admin'::public.user_role
+    AND raw_app_meta_data ->> 'role' = 'admin'
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth;
 
 -- TRIGGER: Credit Guard (Real-time checks)
 CREATE OR REPLACE FUNCTION public.validate_company_credit()
@@ -383,7 +391,7 @@ CREATE TRIGGER before_order_insert_credit
   BEFORE INSERT ON public.orders
   FOR EACH ROW EXECUTE PROCEDURE public.validate_company_credit();
 
--- 7. RLS POLICIES (Development Grade)
+-- RLS POLICIES (Development Grade)
 ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
@@ -394,12 +402,20 @@ ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.work_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.field_incidents ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Public Read Access" ON public.products;
 CREATE POLICY "Public Read Access" ON public.products FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public Read Access" ON public.companies;
 CREATE POLICY "Public Read Access" ON public.companies FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Authenticated Write Orders" ON public.orders;
 CREATE POLICY "Authenticated Write Orders" ON public.orders FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
 -- USERS POLICIES (Hardened against recursion using JWT & Security Definer)
+DROP POLICY IF EXISTS "Admins full access" ON public.users;
 CREATE POLICY "Admins full access" ON public.users FOR ALL USING (public.is_admin());
+
+DROP POLICY IF EXISTS "Users see own profile" ON public.users;
 CREATE POLICY "Users see own profile" ON public.users FOR SELECT USING (auth.uid() = id);
 
 -- 7.5. MIGRATION: Sync existing users' roles to auth.users metadata (To apply RLS fixes immediately)
@@ -416,7 +432,10 @@ BEGIN
 END $$;
 
 -- STORAGE POLICIES
+DROP POLICY IF EXISTS "Public Read Storage" ON storage.objects;
 CREATE POLICY "Public Read Storage" ON storage.objects FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Auth Upload Storage" ON storage.objects;
 CREATE POLICY "Auth Upload Storage" ON storage.objects FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- 8. SAMPLE SEED DATA

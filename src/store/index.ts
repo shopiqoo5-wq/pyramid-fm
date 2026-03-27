@@ -14,6 +14,7 @@ import { secureToken, hashPassword, verifyPassword, sanitizeUser } from '../util
 import { generateUUID } from '../lib/supabaseUtils';
 import { calculateIndianGST } from '../utils/gst';
 import { SupabaseService } from '../lib/supabaseService';
+import { supabase } from '../lib/supabase';
 
 interface CartItem {
   productId: string;
@@ -310,16 +311,15 @@ export const useStore = create<AppState>()((set, get) => ({
   isSupabaseConnected: false,
   currentUser: null,
   login: async (companyIdentifier, userIdentifier, password) => {
-    // 1. Try Supabase Auth
-    try {
-      if (get().isSupabaseConnected) {
-        const client = (await import('../lib/supabase')).supabase;
-        const { data, error } = await client.auth.signInWithPassword({
+    // 1. Try Supabase Auth if connected
+    if (get().isSupabaseConnected) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: userIdentifier,
-          password: password
+          password: password,
         });
-        if (error) throw error;
-        if (data.user) {
+
+        if (!error && data.user) {
           const profile = await SupabaseService.getCurrentUser();
           if (profile) {
             set({ currentUser: profile });
@@ -327,9 +327,9 @@ export const useStore = create<AppState>()((set, get) => ({
             return true;
           }
         }
+      } catch (err: any) {
+        console.warn('Supabase Auth failed, falling back to mock:', err.message);
       }
-    } catch (_e: any) {
-      console.warn('Supabase login failed, falling back to mock:', _e.message);
     }
 
     // 2. Fallback to mock logic (same as before)
@@ -356,30 +356,26 @@ export const useStore = create<AppState>()((set, get) => ({
     return false;
   },
   logout: async () => {
-    if (get().isSupabaseConnected) {
-      await (get() as any)._supabaseLogout();
-    }
+    // In Supabase mode, we use supabase.auth.signOut()
+    await supabase.auth.signOut();
     get().addAlert({ message: 'Logged out successfully.', type: 'info' });
     set({ currentUser: null, cart: [] });
-  },
-  _supabaseLogout: async () => {
-    // Hidden helper since we don't want to expose supabase client too much
-    const client = (await import('../lib/supabase')).supabase;
-    await client.auth.signOut();
   },
 
   initSupabase: async () => {
     const url = import.meta.env.VITE_SUPABASE_URL;
-    if (!url || url.includes('YOUR_')) return;
-
-    const isReachable = await SupabaseService.checkConnection();
-    if (!isReachable) {
-       console.warn('⚠️ Supabase endpoint unreachable (Local/Remote). Falling back to Mock Ecosystem.');
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (!url || !key || url === 'https://placeholder.supabase.co') {
        set({ isSupabaseConnected: false });
-       return;
+       console.warn('⚠️ Supabase connection skipped (missing keys).');
+    } else {
+       const isReachable = await SupabaseService.checkConnection();
+       set({ isSupabaseConnected: isReachable });
     }
 
-    set({ isSupabaseConnected: true });
+    if (!get().isSupabaseConnected) return;
+
     console.log('🔌 Supabase Online: Synchronizing Operational Hub...');
 
     const fetchData = async (label: string, fetcher: () => Promise<any>, setter: (data: any) => void) => {
@@ -388,12 +384,7 @@ export const useStore = create<AppState>()((set, get) => ({
         setter(data);
         console.log(`✅ Synced: ${label}`);
       } catch (err: any) {
-        // PostgREST/PostgreSQL Error 42P01 = Undefined Table
-        if (err.code === '42P01') {
-          console.error(`❌ Table Missing [${label}]: This table does not exist in your Supabase project. Please run the setup script in 'supabase/unified_schema.sql' in your Supabase SQL Editor.`);
-        } else {
-          console.error(`❌ Sync Failed [${label}]:`, err.message || err);
-        }
+        console.error(`❌ Sync Failed [${label}]:`, err.message || err);
       }
     };
 
@@ -623,7 +614,7 @@ export const useStore = create<AppState>()((set, get) => ({
       status: 'pending' as const,
       createdAt: new Date().toISOString()
     };
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       SupabaseService.createReturnRequest(newReturn).then();
     }
     get().addAlert({ message: 'Return request submitted successfully!', type: 'success' });
@@ -678,7 +669,7 @@ export const useStore = create<AppState>()((set, get) => ({
       get().addAlert({ message: `Return ${id} rejected.`, type: 'error' });
     }
 
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       SupabaseService.updateReturnStatus(id, status).then();
     }
 
@@ -742,9 +733,9 @@ export const useStore = create<AppState>()((set, get) => ({
     logAction(order.placedBy, 'update_order_status', `Order ${order.customId} updated to ${status}`);
     addAlert({ message: `Order ${order.customId} status updated to ${status}.`, type: 'success' });
 
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
-      await SupabaseService.updateOrderStatus(orderId, status);
-    }
+      if (get().isSupabaseConnected) {
+        await SupabaseService.updateOrderStatus(orderId, status);
+      }
 
     set((state) => ({
       orders: state.orders.map(o => o.id === orderId ? { ...o, status } : o)
