@@ -383,37 +383,34 @@ export const useStore = create<AppState>()(
 
     console.log('🔌 Supabase Online: Synchronizing Operational Hub...');
 
-    const fetchData = async (label: string, fetcher: () => Promise<any>, setter: (data: any) => void) => {
+    const fetchData = async <K extends keyof AppState>(
+      label: string, 
+      fetcher: () => Promise<any>, 
+      setter: (data: any) => void,
+      stateKey: K
+    ) => {
       try {
-        const data = await fetcher();
-        setter(data);
-        console.log(`✅ Synced: ${label}`);
+        const cloudData = await fetcher();
+        if (cloudData && Array.isArray(cloudData) && cloudData.length > 0) {
+          setter(cloudData);
+          console.log(`✅ Synced: ${label}`);
+        } else {
+          console.log(`ℹ️ Cloud ${label} empty. Retaining local cache.`);
+        }
       } catch (err: any) {
         console.error(`❌ Sync Failed [${label}]:`, err.message || err);
       }
     };
 
-    // Sequential or parallel data hydration
+    // Parallel data hydration with Safety Merge
     await Promise.all([
-      fetchData('Products', () => SupabaseService.getProducts(), (products) => set({ products })),
-      fetchData('Companies', () => SupabaseService.getCompanies(), (companies) => set({ companies })),
-      fetchData('Orders', () => SupabaseService.getOrders(), (orders) => set({ orders })),
-      fetchData('Locations', () => SupabaseService.getLocations(), (locations) => set({ locations })),
-      fetchData('Inventory', () => SupabaseService.getInventory(), (inventory) => set({ inventory })),
-      fetchData('Contracts', () => SupabaseService.getContracts(), (contracts) => set({ contracts })),
-      fetchData('Bundles', () => SupabaseService.getProductBundles(), (productBundles) => set({ productBundles })),
-      fetchData('Exceptions', () => SupabaseService.getExceptions(), (exceptions) => set({ exceptions })),
-      fetchData('Fraud Flags', () => SupabaseService.getFraudFlags(), (fraudFlags) => set({ fraudFlags })),
-      fetchData('Compliance', () => SupabaseService.getComplianceDocs(), (complianceDocs) => set({ complianceDocs })),
-      fetchData('Incidents', () => SupabaseService.getIncidents(), (fieldIncidents) => set({ fieldIncidents })),
-      fetchData('Work Reports', () => SupabaseService.getWorkReports(), (workReports) => set({ workReports })),
-      fetchData('Attendance', () => SupabaseService.getAttendance(), (attendanceRecords) => set({ attendanceRecords })),
-      fetchData('Users', () => SupabaseService.getUsers(), (users) => set({ users })),
-      fetchData('Employees', () => SupabaseService.getEmployees(), (employees) => set({ employees })),
-      fetchData('Time Off', () => SupabaseService.getTimeOffRequests(), (timeOffRequests) => set({ timeOffRequests })),
-      fetchData('Custom Roles', () => SupabaseService.getCustomRoles(), (customRoles) => set({ customRoles })),
-      fetchData('Assignments', () => SupabaseService.getWorkAssignments(), (workAssignments) => set({ workAssignments })),
-      fetchData('Protocols', () => SupabaseService.getSiteProtocols(), (siteProtocols) => set({ siteProtocols })),
+      fetchData('Products', () => SupabaseService.getProducts(), (products) => set({ products }), 'products'),
+      fetchData('Companies', () => SupabaseService.getCompanies(), (companies) => set({ companies }), 'companies'),
+      fetchData('Orders', () => SupabaseService.getOrders(), (orders) => set({ orders }), 'orders'),
+      fetchData('Incidents', () => SupabaseService.getIncidents(), (fieldIncidents) => set({ fieldIncidents }), 'fieldIncidents'),
+      fetchData('Work Reports', () => SupabaseService.getWorkReports(), (workReports) => set({ workReports }), 'workReports'),
+      fetchData('Attendance', () => SupabaseService.getAttendance(), (attendanceRecords) => set({ attendanceRecords }), 'attendanceRecords'),
+      fetchData('Users', () => SupabaseService.getUsers(), (users) => set({ users }), 'users'),
     ]);
 
     // If we have a session, set current user

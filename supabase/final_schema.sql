@@ -563,12 +563,70 @@ CREATE TRIGGER before_order_insert_credit
 
 -- RLS POLICIES (Development Grade)
 ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;-- 1. Users table fixes (Avoid recursion)
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own profile"
+ON public.users FOR SELECT
+TO authenticated
+USING (auth.uid() = id);
+
+CREATE POLICY "Admins can manage all users"
+ON public.users FOR ALL
+TO authenticated
+USING (
+  (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+);
+
+-- 2. Attendance Persistence & Visibility
 ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Employees can manage own attendance"
+ON public.attendance_records FOR ALL
+TO authenticated
+USING (employee_id = auth.uid())
+WITH CHECK (employee_id = auth.uid());
+
+CREATE POLICY "Admins can view all attendance"
+ON public.attendance_records FOR SELECT
+TO authenticated
+USING (
+  (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+);
+
+-- 3. Work Reports Persistence
+ALTER TABLE public.work_reports ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Employees can submit work reports"
+ON public.work_reports FOR INSERT
+TO authenticated
+WITH CHECK (employee_id = auth.uid());
+
+CREATE POLICY "Relevant parties can view work reports"
+ON public.work_reports FOR SELECT
+TO authenticated
+USING (
+  employee_id = auth.uid() OR 
+  (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+);
+
+-- 4. Field Incidents Persistence
+ALTER TABLE public.field_incidents ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can submit incidents"
+ON public.field_incidents FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+CREATE POLICY "Admins can manage all incidents"
+ON public.field_incidents FOR ALL
+TO authenticated
+USING (
+  (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+);
 ALTER TABLE public.work_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.field_incidents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.time_off_requests ENABLE ROW LEVEL SECURITY;
