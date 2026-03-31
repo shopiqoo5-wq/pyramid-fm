@@ -11,18 +11,7 @@ export const camelToSnake = (obj: any): any => {
   if (obj === null || typeof obj !== 'object' || obj instanceof Date) return obj;
 
   return Object.keys(obj).reduce((acc, key) => {
-    let snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-    
-    // OVERRIDES for Supabase Schema consistency
-    if (key === 'timestamp' || key === 'createdAt') snakeKey = 'created_at';
-    if (key === 'approvedBy') snakeKey = 'supervisor_id';
-    if (key === 'userId') snakeKey = 'user_id';
-    if (key === 'employeeId') snakeKey = 'employee_id';
-    if (key === 'locationId') snakeKey = 'location_id';
-    if (key === 'productId') snakeKey = 'product_id';
-    if (key === 'companyId') snakeKey = 'company_id';
-    if (key === 'warehouseId') snakeKey = 'warehouse_id';
-
+    const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
     acc[snakeKey] = camelToSnake(obj[key]);
     return acc;
   }, {} as any);
@@ -36,18 +25,7 @@ export const snakeToCamel = (obj: any): any => {
   if (obj === null || typeof obj !== 'object' || obj instanceof Date) return obj;
 
   return Object.keys(obj).reduce((acc, key) => {
-    let camelKey = key.replace(/(_\w)/g, (match) => match[1].toUpperCase());
-    
-    // OVERRIDES for Frontend Type consistency
-    if (key === 'created_at') camelKey = 'timestamp'; // Use timestamp as default for UI
-    if (key === 'supervisor_id') camelKey = 'approvedBy';
-    if (key === 'user_id') camelKey = 'userId';
-    if (key === 'employee_id') camelKey = 'employeeId';
-    if (key === 'location_id') camelKey = 'locationId';
-    if (key === 'product_id') camelKey = 'productId';
-    if (key === 'company_id') camelKey = 'companyId';
-    if (key === 'warehouse_id') camelKey = 'warehouseId';
-
+    const camelKey = key.replace(/(_\w)/g, (match) => match[1].toUpperCase());
     acc[camelKey] = snakeToCamel(obj[key]);
     return acc;
   }, {} as any);

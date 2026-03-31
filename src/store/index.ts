@@ -83,7 +83,7 @@ interface AppState {
   // New Actions
   toggleFavorite: (productId: string, companyId: string) => void;
   logAction: (userId: string, action: string, details: string) => void;
-  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void;
+  addNotification: (notification: Omit<Notification, 'id' | 'createdAt' | 'read'>) => void;
   markNotificationAsRead: (id: string) => void;
   
   // Alerts (Toasts)
@@ -210,12 +210,12 @@ interface AppState {
   addEmployee: (employee: Omit<Employee, 'id'>) => Promise<void>;
   updateEmployee: (id: string, updates: Partial<Employee>) => Promise<void>;
   deleteEmployee: (id: string) => Promise<void>;
-  submitWorkReport: (report: Omit<WorkReport, 'id' | 'timestamp' | 'status'>, file?: File) => Promise<void>;
+  submitWorkReport: (report: Omit<WorkReport, 'id' | 'createdAt' | 'status'>, file?: File) => Promise<void>;
   approveWorkReport: (reportId: string, supervisorId: string) => Promise<void>;
   rejectWorkReport: (reportId: string, supervisorId: string) => Promise<void>;
   submitTimeOffRequest: (request: Omit<TimeOffRequest, 'id' | 'createdAt' | 'status'>) => Promise<void>;
   updateTimeOffStatus: (id: string, status: TimeOffRequest['status'], adminRemarks?: string) => Promise<void>;
-  submitAttendance: (record: { employeeId: string; imageUrl: string; checkOut?: string; locationId?: string; type?: 'in' | 'out'; latitude?: number; longitude?: number; metadata?: any }, isBase64?: boolean) => Promise<void>;
+  submitAttendance: (record: { employeeId: string; photoUrl: string; checkOut?: string; locationId?: string; type?: 'in' | 'out'; latitude?: number; longitude?: number; metadata?: any }, isBase64?: boolean) => Promise<void>;
   updateAttendanceRecord: (id: string, updates: Partial<AttendanceRecord>) => void;
   deleteAttendanceRecord: (id: string) => void;
   createManualTimesheet: (record: Omit<AttendanceRecord, 'id'>) => void;
@@ -226,7 +226,7 @@ interface AppState {
   updateLocationCoordinates: (locationId: string, latitude: number, longitude: number) => void;
   
   // Phase 38 Actions
-  submitIncident: (incident: Omit<FieldIncident, 'id' | 'timestamp' | 'status'>, file?: File) => Promise<void>;
+  submitIncident: (incident: Omit<FieldIncident, 'id' | 'createdAt' | 'status'>, file?: File) => Promise<void>;
   updateIncidentStatus: (id: string, status: FieldIncident['status'], adminRemarks?: string) => Promise<void>;
   updateShiftStatus: (id: string, status: EmployeeShift['status']) => Promise<void>;
 
@@ -423,7 +423,7 @@ export const useStore = create<AppState>()(
         set({ currentUser });
         console.log(`👤 Auth Verified: ${currentUser.name}`);
       }
-    } catch (_e) {
+    } catch {
       console.warn('Current user verification skipped.');
     }
   },
@@ -471,8 +471,8 @@ export const useStore = create<AppState>()(
     lowStockNotifiedProducts: [],
     supportTickets: [],
     fieldIncidents: [
-      { id: 'inc-1', title: 'Maintenance Incident Reported', employeeId: 'emp-001', locationId: '11111111-2222-4000-8000-000000000001', type: 'Maintenance', severity: 'Medium', description: 'Leaking pipe in the main cafeteria area.', status: 'Open', timestamp: new Date(Date.now() - 86400000).toISOString() },
-      { id: 'inc-2', title: 'Safety Incident Reported', employeeId: 'emp-002', locationId: '11111111-2222-4000-8000-000000000002', type: 'Safety', severity: 'High', description: 'Slippery floor near the loading bay, no warning signs found.', status: 'In Progress', timestamp: new Date(Date.now() - 3600000).toISOString() }
+      { id: 'inc-1', userId: 'd2222222-4444-4444-8444-000000000002', locationId: '11111111-2222-4000-8000-000000000001', type: 'Safety', severity: 'Medium', title: 'Wet floor in lobby', description: 'Careful of slipping', status: 'Resolved', createdAt: new Date().toISOString() },
+      { id: 'inc-2', userId: 'emp-002', locationId: '11111111-2222-4000-8000-000000000002', type: 'Safety', severity: 'High', title: 'Safety Incident Reported', description: 'Slippery floor near the loading bay, no warning signs found.', status: 'In Progress', createdAt: new Date(Date.now() - 3600000).toISOString() }
     ],
     employeeShifts: [
       { id: 'sh-1', employeeId: 'emp-001', locationId: '11111111-2222-4000-8000-000000000001', startTime: '2026-03-22T09:00:00Z', endTime: '2026-03-22T17:00:00Z', role: 'Cleaner', status: 'In Progress' },
@@ -702,17 +702,19 @@ export const useStore = create<AppState>()(
       apiKeys: state.apiKeys.filter(k => k.id !== id)
     };
   }),
-   uploadVerificationPhoto: (photo: any) => set(state => {
+  uploadVerificationPhoto: (photo: any) => set(state => {
     get().addAlert({ message: 'Verification photo uploaded. Awaiting approval.', type: 'info' });
     return {
-    photos: [{
-      ...photo,
-      id: `PHO-${Date.now()}`,
-      status: 'pending' as const,
-      timestamp: new Date().toISOString()
-    }, ...state.photos]
-  };
-}),
+      photos: [{
+        ...photo,
+        id: `PHO-${Date.now()}`,
+        imageUrl: 'https://images.unsplash.com/photo-1584820927498-cafe8c160826?w=200&h=200&fit=crop', 
+        remarks: 'Main lobby area sanitized.', 
+        status: 'pending' as const,
+        createdAt: new Date().toISOString()
+      }, ...state.photos]
+    };
+  }),
 
   updateOrderStatus: async (orderId, status) => {
     const { orders, users, addNotification, logAction, addAlert } = get();
@@ -892,7 +894,7 @@ export const useStore = create<AppState>()(
       userId,
       action,
       details,
-      timestamp: new Date().toISOString()
+      createdAt: new Date().toISOString()
     }, ...state.auditLogs]
   })),
 
@@ -901,7 +903,7 @@ export const useStore = create<AppState>()(
       ...notification,
       id: `notif-${Date.now()}`,
       read: false,
-      timestamp: new Date().toISOString()
+      createdAt: new Date().toISOString()
     }, ...state.notifications]
   })),
 
@@ -927,7 +929,7 @@ export const useStore = create<AppState>()(
 
   addProduct: async (productStart) => {
     try {
-      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      if (get().isSupabaseConnected) {
         const product = await SupabaseService.addProduct(productStart);
         set((state) => ({ products: [product, ...state.products] }));
       } else {
@@ -941,7 +943,7 @@ export const useStore = create<AppState>()(
 
   updateProduct: async (id, updates) => {
     try {
-      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      if (get().isSupabaseConnected) {
         await SupabaseService.updateProduct(id, updates);
       }
       set((state) => ({ products: state.products.map(p => p.id === id ? { ...p, ...updates } : p) }));
@@ -953,7 +955,7 @@ export const useStore = create<AppState>()(
 
   deleteProduct: async (id) => {
     try {
-      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      if (get().isSupabaseConnected) {
         await SupabaseService.deleteProduct(id);
       }
       set((state) => ({ products: state.products.filter(p => p.id !== id) }));
@@ -965,7 +967,7 @@ export const useStore = create<AppState>()(
 
   addCompany: async (companyStart) => {
     try {
-      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      if (get().isSupabaseConnected) {
         const company = await SupabaseService.addCompany(companyStart);
         set((state) => ({ companies: [company, ...state.companies] }));
       } else {
@@ -979,7 +981,7 @@ export const useStore = create<AppState>()(
 
   updateCompany: async (id, updates) => {
     try {
-      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      if (get().isSupabaseConnected) {
         await SupabaseService.updateCompany(id, updates);
       }
       set((state) => ({ companies: state.companies.map(c => c.id === id ? { ...c, ...updates } : c) }));
@@ -991,7 +993,7 @@ export const useStore = create<AppState>()(
 
   deleteCompany: async (id) => {
     try {
-      if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+      if (get().isSupabaseConnected) {
         await SupabaseService.deleteCompany(id);
       }
       set((state) => ({ companies: state.companies.filter(c => c.id !== id) }));
@@ -1104,7 +1106,7 @@ export const useStore = create<AppState>()(
              newQuantity: quantity,
              referenceId: order.customId,
              performedBy: 'SYSTEM',
-             timestamp: new Date().toISOString(),
+             createdAt: new Date().toISOString(),
              notes: `Order ${order.customId} dispatched.`
            }, ...state.inventoryLogs].slice(0, 1000);
         }
@@ -1131,7 +1133,7 @@ export const useStore = create<AppState>()(
               newQuantity: quantity,
               referenceId: order.customId,
               performedBy: 'SYSTEM',
-              timestamp: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
               notes: `Order ${order.customId} ${toStatus}. Stock returned.`
             }, ...state.inventoryLogs].slice(0, 1000);
           } else if (fromStatus !== 'delivered') { // If not yet dispatched or delivered
@@ -1296,10 +1298,6 @@ export const useStore = create<AppState>()(
     set((state) => {
       const item = state.inventory.find(i => i.productId === productId && i.warehouseId === warehouseId);
       const previousQty = item?.quantity || 0;
-      // - [x] Phase 10: Debugging & Performance Optimization
-      // - [x] Resolve "Maximum update depth exceeded" infinite loop
-      // - [x] Refactor Layouts to use Zustand selectors
-      // - [x] Move global business rules (low stock alerts) to the store
       const newQty = Math.max(0, previousQty + quantityDelta);
 
       // If batch included, update batch too
@@ -1311,17 +1309,17 @@ export const useStore = create<AppState>()(
       }
 
       const newLog: InventoryLog = {
-        id: `log-${Date.now()}`,
+        id: generateUUID(),
         productId,
         warehouseId,
-        type: (quantityDelta > 0 ? 'REFILL' : 'ADJUSTMENT') as any, // Simple mapping for now
-        change: quantityDelta,
+        type: quantityDelta > 0 ? 'REFILL' : 'SALE',
+        change: Math.abs(quantityDelta),
         previousQuantity: previousQty,
         newQuantity: newQty,
         referenceId: batchId || 'MANUAL',
         performedBy: userId,
-        timestamp: new Date().toISOString(),
-        notes: reason
+        createdAt: new Date().toISOString(),
+        notes: reason || 'Manual adjustment'
       };
 
       return {
@@ -1342,7 +1340,7 @@ export const useStore = create<AppState>()(
     // Trigger internal check instead of relying on component effects
     get().checkLowStock();
 
-    const product = get().products.find(p => p.id === productId); // Re-added this line as it was used below
+    const product = get().products.find(p => p.id === productId);
     get().logAction(userId, 'inventory_adjustment', `Adjusted ${product?.name || productId} stock in ${warehouseId} by ${quantityDelta}. Reason: ${reason}`);
 
     if (get().isSupabaseConnected) {
@@ -1443,7 +1441,7 @@ export const useStore = create<AppState>()(
         newQuantity: newFromQty,
         referenceId: `TRF-${fromWarehouseId}-${toWarehouseId}`,
         performedBy: userId,
-        timestamp,
+        createdAt: timestamp,
         notes: `Transfer to ${toWarehouseId}`
       };
 
@@ -1457,7 +1455,7 @@ export const useStore = create<AppState>()(
         newQuantity: newToQty,
         referenceId: `TRF-${fromWarehouseId}-${toWarehouseId}`,
         performedBy: userId,
-        timestamp,
+        createdAt: timestamp,
         notes: `Transfer from ${fromWarehouseId}`
       };
 
@@ -1669,7 +1667,7 @@ export const useStore = create<AppState>()(
       try {
         const path = `incidents/${generateUUID()}-${file.name}`;
         finalImageUrl = await SupabaseService.uploadFile('incidents', path, file);
-      } catch (_e) {
+      } catch {
         get().addAlert({ message: 'Incident evidence upload deferred. Metadata persisted.', type: 'info' });
       }
     }
@@ -1677,7 +1675,8 @@ export const useStore = create<AppState>()(
     const newIncident: FieldIncident = {
       ...incident,
       id: generateUUID(),
-      timestamp: new Date().toISOString(),
+      userId: incident.userId, // Standardized
+      createdAt: new Date().toISOString(),
       status: 'Open',
       imageUrl: finalImageUrl,
       title: (incident as any).title || `${incident.type} Incident Reported`
@@ -2094,7 +2093,7 @@ export const useStore = create<AppState>()(
       senderId,
       message,
       isStaff,
-      created_at: createdAt
+      createdAt
     };
     if (imageUrl) newMessage.imageUrl = imageUrl;
 
@@ -2158,7 +2157,7 @@ export const useStore = create<AppState>()(
     const newReport: WorkReport = {
       ...report,
       id: generateUUID(),
-      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       status: 'pending',
       imageUrl: finalImageUrl
     };
@@ -2196,19 +2195,19 @@ export const useStore = create<AppState>()(
   },
 
   submitAttendance: async (record, isBase64) => {
-    const { employeeId, locationId, imageUrl, checkOut, type, latitude, longitude, metadata } = record;
+    const { employeeId, locationId, photoUrl, checkOut, type, latitude, longitude, metadata } = record;
     const isOut = !!checkOut || type === 'out';
     const matchScore = metadata?.faceMatchScore || 100;
     const timestamp = new Date().toISOString();
-    let finalImageUrl = imageUrl;
+    let finalImageUrl = photoUrl;
 
     // Hardening Section: Convert Base64 identity captures to persistent Storage Blobs
-    if (isBase64 && imageUrl.startsWith('data:') && import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (isBase64 && photoUrl.startsWith('data:') && get().isSupabaseConnected) {
       try {
-        const blob = SupabaseService.base64ToBlob(imageUrl);
+        const blob = SupabaseService.base64ToBlob(photoUrl);
         const path = `attendance/${employeeId}-${Date.now()}.jpg`;
         finalImageUrl = await SupabaseService.uploadFile('attendance', path, blob);
-      } catch (_e) {
+      } catch {
         get().addAlert({ message: 'Identity photo persistence failed. Manual verification required.', type: 'error' });
       }
     }
@@ -2221,7 +2220,6 @@ export const useStore = create<AppState>()(
           checkOut: checkOut || timestamp,
           type: 'out',
           photoUrl: finalImageUrl,
-          imageUrl: finalImageUrl,
           latitude,
           longitude,
           status: matchScore >= 90 ? 'verified' : 'pending',
@@ -2244,7 +2242,6 @@ export const useStore = create<AppState>()(
         id: generateUUID(),
         employeeId,
         locationId,
-        imageUrl: finalImageUrl,
         photoUrl: finalImageUrl,
         type: 'in',
         latitude,
@@ -2428,7 +2425,7 @@ export const useStore = create<AppState>()(
   addCustomRole: async (role) => {
     const newRole = { ...role, id: generateUUID() };
     set(state => ({ customRoles: [...state.customRoles, newRole] }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.addCustomRole(newRole);
     }
     get().addAlert({ message: `Role ${newRole.name} established.`, type: 'success' });
@@ -2438,7 +2435,7 @@ export const useStore = create<AppState>()(
     set(state => ({
       customRoles: state.customRoles.map(r => r.id === id ? { ...r, ...updates } : r)
     }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.updateCustomRole(id, updates);
     }
     get().addAlert({ message: 'Role configurations updated.', type: 'info' });
@@ -2448,7 +2445,7 @@ export const useStore = create<AppState>()(
     set(state => ({
       customRoles: state.customRoles.filter(r => r.id !== id)
     }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.deleteCustomRole(id);
     }
     get().addAlert({ message: 'Role permanently decommissioned.', type: 'warning' });
@@ -2457,7 +2454,7 @@ export const useStore = create<AppState>()(
   addWorkAssignment: async (assignment) => {
     const newAssignment = { ...assignment, id: generateUUID(), createdAt: new Date().toISOString() };
     set(state => ({ workAssignments: [...state.workAssignments, newAssignment] }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.addWorkAssignment(newAssignment);
     }
     get().addAlert({ message: 'New work assignment deployed.', type: 'success' });
@@ -2467,7 +2464,7 @@ export const useStore = create<AppState>()(
     set(state => ({
       workAssignments: state.workAssignments.map(a => a.id === id ? { ...a, ...updates } : a)
     }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.updateWorkAssignment(id, updates);
     }
     get().addAlert({ message: 'Work assignment updated.', type: 'info' });
@@ -2479,7 +2476,7 @@ export const useStore = create<AppState>()(
         a.id === id ? { ...a, status: 'archived' } : a
       )
     }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.updateWorkAssignment(id, { status: 'archived' });
     }
     get().addAlert({ message: 'Work assignment recalled and archived.', type: 'warning' });
@@ -2488,7 +2485,7 @@ export const useStore = create<AppState>()(
   addSiteProtocol: async (protocol) => {
     const newProtocol = { ...protocol, id: generateUUID() };
     set(state => ({ siteProtocols: [...state.siteProtocols, newProtocol] }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.addSiteProtocol(newProtocol);
     }
     get().addAlert({ message: 'Site protocol successfully codified.', type: 'success' });
@@ -2497,7 +2494,7 @@ export const useStore = create<AppState>()(
     set(state => ({
       siteProtocols: state.siteProtocols.filter(p => p.id !== id)
     }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.deleteSiteProtocol(id);
     }
     get().addAlert({ message: 'Site protocol decommissioned.', type: 'warning' });
@@ -2506,7 +2503,7 @@ export const useStore = create<AppState>()(
   submitTimeOffRequest: async (request) => {
     const newReq = { ...request, id: generateUUID(), status: 'pending', createdAt: new Date().toISOString() };
     set(state => ({ timeOffRequests: [newReq as TimeOffRequest, ...state.timeOffRequests] }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.submitTimeOffRequest(newReq);
     }
     get().addAlert({ message: 'Absence request submitted for HR authorization.', type: 'info' });
@@ -2515,7 +2512,7 @@ export const useStore = create<AppState>()(
     set(state => ({
       timeOffRequests: state.timeOffRequests.map(r => r.id === id ? { ...r, status, adminRemarks } : r)
     }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.updateTimeOffStatus(id, { status, adminRemarks });
     }
     get().addAlert({ message: `Absence request ${status.toUpperCase()}.`, type: 'success' });
@@ -2524,7 +2521,7 @@ export const useStore = create<AppState>()(
     set(state => ({
       attendanceRecords: state.attendanceRecords.map(r => r.id === id ? { ...r, ...updates } : r)
     }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.updateAttendanceRecord(id, updates);
     }
     get().addAlert({ message: 'Punch register heavily modified.', type: 'warning' });
@@ -2533,15 +2530,15 @@ export const useStore = create<AppState>()(
     set(state => ({
       attendanceRecords: state.attendanceRecords.filter(r => r.id !== id)
     }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.deleteAttendanceRecord(id);
     }
     get().addAlert({ message: 'Timesheet log violently expunged from database.', type: 'error' });
   },
   createManualTimesheet: async (record) => {
-    const newRecord = { ...record, id: generateUUID() };
+    const newRecord = { ...record, id: generateUUID(), createdAt: new Date().toISOString() };
     set(state => ({ attendanceRecords: [newRecord as AttendanceRecord, ...state.attendanceRecords] }));
-    if (import.meta.env.VITE_SUPABASE_URL && !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_')) {
+    if (get().isSupabaseConnected) {
       await SupabaseService.submitAttendance(newRecord);
     }
     get().addAlert({ message: 'Supervisor-originated manual shift shift entry accepted.', type: 'info' });
@@ -2552,7 +2549,7 @@ export const useStore = create<AppState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         // We exclude volatile runtime states like connection flags and active toasts
-        const { isSupabaseConnected, alerts, ...rest } = state;
+        const { isSupabaseConnected: _, alerts: __, ...rest } = state;
         return rest;
       },
     }

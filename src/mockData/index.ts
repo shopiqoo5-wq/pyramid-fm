@@ -89,7 +89,7 @@ export const mockEmployees: Employee[] = [
 ];
 
 export const mockAttendance: AttendanceRecord[] = [
-  { id: 'a1111111-1111-4111-8111-000000000001', employeeId: 'e1111111-1111-4111-8111-000000000001', checkIn: new Date(Date.now() - 3600000).toISOString(), imageUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop' }
+  { id: 'a1111111-1111-4111-8111-000000000001', employeeId: 'e1111111-1111-4111-8111-000000000001', checkIn: new Date(Date.now() - 3600000).toISOString(), photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop' }
 ];
 
 export const mockWorkReports: WorkReport[] = [
@@ -98,7 +98,7 @@ export const mockWorkReports: WorkReport[] = [
     employeeId: 'e1111111-1111-4111-8111-000000000001', 
     imageUrl: 'https://images.unsplash.com/photo-1584820927498-cafe8c160826?w=200&h=200&fit=crop', 
     remarks: 'Main lobby area sanitized.', 
-    timestamp: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
     status: 'pending'
   }
 ];
@@ -138,7 +138,7 @@ export const mockInventoryLogs: any[] = [
     newQuantity: 500,
     referenceId: 'BAT-2024-001',
     performedBy: 'ADMIN-001',
-    timestamp: new Date(Date.now() - 604800000).toISOString(),
+    createdAt: new Date(Date.now() - 604800000).toISOString(),
     notes: 'Initial stock injection.'
   },
   {
@@ -151,7 +151,7 @@ export const mockInventoryLogs: any[] = [
     newQuantity: 476,
     referenceId: 'ORD-2026-001',
     performedBy: 'SYSTEM',
-    timestamp: new Date(Date.now() - 259200000).toISOString(),
+    createdAt: new Date(Date.now() - 259200000).toISOString(),
     notes: 'Outbound order fulfillment.'
   },
   {
@@ -164,7 +164,7 @@ export const mockInventoryLogs: any[] = [
     newQuantity: 152,
     referenceId: 'ADJ-102',
     performedBy: 'WH-STAFF-02',
-    timestamp: new Date(Date.now() - 86400000).toISOString(),
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
     notes: 'Damaged during handling.'
   }
 ];

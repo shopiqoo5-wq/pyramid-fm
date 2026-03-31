@@ -40,7 +40,7 @@ export interface User {
   username?: string;
   password?: string; // Stored as plain text for this mock/demo, would be hashed in prod
    status: 'active' | 'inactive';
-   lastLogin?: string;
+   lastLoginAt?: string;
    faceImageUrl?: string; // Registered biometric profile
    lastActionAt?: string;
    invitedBy?: string;
@@ -142,7 +142,7 @@ export interface InventoryLog {
   newQuantity: number;
   referenceId: string; // Order ID, Batch ID, or Ticket ID
   performedBy: string; // User ID
-  timestamp: string;
+  createdAt: string;
   notes?: string;
 }
 
@@ -244,7 +244,7 @@ export interface AuditLog {
   action: string;
   details: string;
   type?: 'security' | 'system' | 'standard';
-  timestamp: string;
+  createdAt: string;
 }
 
 export interface ProductBundle {
@@ -264,7 +264,7 @@ export interface Notification {
   message: string;
   read: boolean;
   type: 'info' | 'success' | 'warning' | 'error';
-  timestamp: string;
+  createdAt: string;
 }
 
 export interface Contract {
@@ -346,7 +346,7 @@ export interface Webhook {
    faceMatchScore: number;
    workTag: string;
    confidenceScore: number;
-   timestamp: string;
+   createdAt: string;
  }
 
 export interface Employee {
@@ -363,7 +363,6 @@ export interface AttendanceRecord {
   employeeId: string;
   checkIn: string;
   checkOut?: string;
-  imageUrl: string;
   metadata?: {
     faceMatchScore?: number;
     workTag?: string;
@@ -373,8 +372,8 @@ export interface AttendanceRecord {
   // Phase 49: Geofenced Data Capture
   locationId?: string;
   type?: 'in' | 'out';
-  timestamp?: string;
-  photoUrl?: string;
+  timestamp?: string; // Matches DB timestamp
+  photoUrl: string;   // Matches DB photo_url
   latitude?: number;
   longitude?: number;
   status?: 'present' | 'absent' | 'late' | 'half-day' | 'pending' | 'verified' | 'flagged';
@@ -392,7 +391,7 @@ export interface WorkReport {
   remarks: string;
   latitude?: number;
   longitude?: number;
-  timestamp: string;
+  createdAt: string;
   status: 'pending' | 'approved' | 'rejected';
   approvedBy?: string; // supervisor_id
 }
@@ -419,8 +418,8 @@ export interface ReturnRequest {
   companyId: string;
   reason: 'Damaged' | 'Wrong Item' | 'Excess Quantity' | 'Other';
   status: 'pending' | 'approved' | 'rejected' | 'completed';
-  imageUrl?: string;
-  createdAt: string;
+  imageUrl?: string; // Matches DB image_url
+  createdAt: string; // Matches DB created_at
   requestedBy: string;
   items: { productId: string; quantity: number }[];
 }
@@ -432,7 +431,7 @@ export interface PhotoVerification {
   imageUrl: string;
   status: 'pending' | 'verified' | 'rejected';
   uploadedBy: string;
-  timestamp: string;
+  createdAt: string;
 }
 
 export interface APIKey {
@@ -491,7 +490,7 @@ export interface TicketMessage {
   senderId: string;
   message: string;
   imageUrl?: string;
-  created_at: string;
+  createdAt: string;
   isStaff: boolean;
 }
 
@@ -525,15 +524,14 @@ export interface Toast {
 export interface FieldIncident {
   id: string;
   title: string;
-  employeeId: string;
-  userId?: string;
+  userId: string; // Changed from employeeId to match DB user_id
   locationId: string;
   type: 'Maintenance' | 'Safety' | 'Supply' | 'Other';
   severity: 'Low' | 'Medium' | 'High' | 'Critical';
   description: string;
-  imageUrl?: string;
+  imageUrl?: string; // Matches DB image_url
   status: 'Open' | 'In Progress' | 'Resolved';
-  timestamp: string;
+  createdAt: string; // Matches DB created_at
   adminRemarks?: string;
 }
 

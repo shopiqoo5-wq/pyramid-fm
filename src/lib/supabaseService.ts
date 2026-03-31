@@ -12,7 +12,7 @@ export const SupabaseService = {
     try {
       const { error } = await supabase.from('products').select('id').limit(1);
       return !error;
-    } catch (_e) {
+    } catch {
       return false;
     }
   },
@@ -29,7 +29,7 @@ export const SupabaseService = {
         .single();
         
       return profile ? snakeToCamel(profile) : null;
-    } catch (_e) {
+    } catch {
       return null;
     }
   },
