@@ -779,16 +779,20 @@ CREATE POLICY "Auth Upload Storage" ON storage.objects FOR INSERT WITH CHECK (au
 
 -- 8. SAMPLE SEED DATA
 -- Companies
-INSERT INTO public.companies (id, name, gst_number, point_of_contact, credit_limit, available_credit) VALUES
-('11111111-1111-4111-8111-111111111111', 'Alpha Corp (Gold Tier)', '27AABBCC1234F1Z1', 'John Doe', 50000.00, 45000.00),
-('22222222-2222-4222-8222-222222222222', 'Beta Industries (Standard)', '27XYZABC8765G2Y2', 'Jane Smith', 100000.00, 12000.00),
-('d4444444-6666-4666-8666-000000000004', 'Pyramid Workforce', '27PYRAMID1234F1Z1', 'Ops Lead', 0, 0)
+INSERT INTO public.companies (id, name, company_code, gst_number, point_of_contact, credit_limit, available_credit) VALUES
+('11111111-1111-4111-8111-111111111111', 'Alpha Corp (Gold Tier)', 'ALPHA', '27AABBCC1234F1Z1', 'John Doe', 50000, 45000),
+('22222222-2222-4222-8222-222222222222', 'Beta Industries (Standard)', 'BETA', '27XYZABC8765G2Y2', 'Jane Smith', 100000, 12000),
+('33333333-3333-4333-8333-333333333333', 'Gamma Enterprises (Platinum)', 'GAMMA', '29ASDFGH9876Q3W3', 'Robert Chen', 250000, 250000),
+('d4444444-6666-4666-8666-000000000004', 'Pyramid Workforce', 'PYRAMID', '27PYRAMID1234F1Z1', 'Operations Manager', 0, 0)
 ON CONFLICT (id) DO NOTHING;
 
 -- Products
 INSERT INTO public.products (id, name, sku, description, image_url, uom, base_price, gst_rate, hsn_code, category, active) VALUES
 ('11111111-1111-4000-8000-000000000001', 'Floor Cleaner (5L)', 'FC-001', 'Heavy Duty Cleaner', 'https://images.unsplash.com/photo-1584820927498-cafe8c160826?w=400', 'Can', 250, 18, '3402', 'Cleaning', true),
-('11111111-1111-4000-8000-000000000002', 'Glass Cleaner (500ml)', 'GC-002', 'Streak-free', 'https://images.unsplash.com/photo-1585834892497-7e61da128913?w=400', 'Bottle', 85, 18, '3402', 'Cleaning', true)
+('11111111-1111-4000-8000-000000000002', 'Glass Cleaner (500ml)', 'GC-002', 'Streak-free', 'https://images.unsplash.com/photo-1585834892497-7e61da128913?w=400', 'Bottle', 85, 18, '3402', 'Cleaning', true),
+('11111111-1111-4000-8000-000000000003', 'Microfiber Cloth', 'MC-003', 'Premium Pack', 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=400', 'Pack', 120, 12, '6307', 'Accessories', true),
+('11111111-1111-4000-8000-000000000004', 'Nitrile Gloves (Box)', 'GL-004', 'Powder-free', 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=400', 'Box', 450, 5, '4015', 'Safety', true),
+('11111111-1111-4000-8000-000000000005', 'Hand Sanitizer (1L)', 'HS-005', 'Alcohol based', 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400', 'Bottle', 180, 18, '3808', 'Hygiene', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Warehouses
@@ -798,18 +802,27 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Locations
 INSERT INTO public.locations (id, company_id, name, address, state, default_warehouse_id) VALUES
-('11111111-2222-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', 'HQ Site', 'BKC, Mumbai', 'Maharashtra', 'f1111111-1111-4111-8111-000000000001')
+('11111111-2222-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', 'HQ Site', 'BKC, Mumbai', 'Maharashtra', 'f1111111-1111-4111-8111-000000000001'),
+('11111111-2222-4000-8000-000000000002', '22222222-2222-4222-8222-222222222222', 'Alpha Branch', 'Cyber City, Gurugram', 'Haryana', 'f1111111-1111-4111-8111-000000000001')
 ON CONFLICT (id) DO NOTHING;
 
 -- Employees
-INSERT INTO public.employees (id, company_id, location_id, name, role) VALUES
-('e1111111-1111-4111-8111-000000000001', 'd4444444-6666-4666-8666-000000000004', '11111111-2222-4000-8000-000000000001', 'Rahul Cleaner', 'Cleaner')
+INSERT INTO public.employees (id, user_id, company_id, location_id, name, role) VALUES
+('e1111111-1111-4111-8111-000000000001', 'd2222222-4444-4444-8444-000000000002', 'd4444444-6666-4666-8666-000000000004', '11111111-2222-4000-8000-000000000001', 'Sameer Kumar', 'Cleaner'),
+('e2222222-2222-4222-8222-000000000002', 'd3333333-5555-4555-8555-000000000003', 'd4444444-6666-4666-8666-000000000004', '11111111-2222-4000-8000-000000000001', 'Vikram Singh', 'Supervisor')
 ON CONFLICT (id) DO NOTHING;
 
--- USERS (Note: In a real Supabase environment, these must exist in auth.users as well)
-INSERT INTO public.users (id, name, email, role, phone, status) VALUES
-('d1111111-3333-4333-8333-000000000001', 'Pyramid FMS Master', 'master@pyramidfms.com', 'admin', '9999988888', 'active'),
-('11111111-0000-4000-8000-000000000001', 'Admin Sameer', 'admin@pyramidfm.com', 'admin', '9876543210', 'active'),
-('11111111-0000-4000-8000-000000000002', 'John Doe', 'john@alphacorp.com', 'client_manager', '9123456780', 'active'),
-('d2222222-4444-4444-8444-000000000002', 'Sameer Employee', 'sameer@pyramidfm.com', 'employee', '9876543211', 'active')
+-- USERS
+INSERT INTO public.users (id, name, email, role, phone, status, company_id) VALUES
+('d1111111-3333-4333-8333-000000000001', 'Pyramid FMS Master', 'master@pyramidfms.com', 'admin', '9999988888', 'active', NULL),
+('11111111-0000-4000-8000-000000000001', 'Admin Sameer', 'admin@pyramidfm.com', 'admin', '9876543210', 'active', NULL),
+('11111111-0000-4000-8000-000000000002', 'John Doe', 'john@alphacorp.com', 'client_manager', '9123456780', 'active', '11111111-1111-4111-8111-111111111111'),
+('d2222222-4444-4444-8444-000000000002', 'Sameer Employee', 'sameer@pyramidfm.com', 'employee', '9876543211', 'active', 'd4444444-6666-4666-8666-000000000004'),
+('d3333333-5555-4555-8555-000000000003', 'Vikram Supervisor', 'vikram@pyramidfm.com', 'employee', '9876543212', 'active', 'd4444444-6666-4666-8666-000000000004')
+ON CONFLICT (id) DO NOTHING;
+
+-- Inventory
+INSERT INTO public.inventory (id, product_id, warehouse_id, quantity, available_quantity) VALUES
+(uuid_generate_v4(), '11111111-1111-4000-8000-000000000001', 'f1111111-1111-4111-8111-000000000001', 150, 150),
+(uuid_generate_v4(), '11111111-1111-4000-8000-000000000002', 'f1111111-1111-4111-8111-000000000001', 200, 200)
 ON CONFLICT (id) DO NOTHING;
