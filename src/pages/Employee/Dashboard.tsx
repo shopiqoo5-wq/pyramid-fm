@@ -7,7 +7,7 @@ import {
 } from 'react-icons/lu';
 import type { EmployeeRole } from '../../types';
 import { Card, Badge } from '../../components/ui';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from '../../hooks/useTranslation';
 import AttendanceScanner from '../../components/scanner/AttendanceScanner';
 
@@ -15,26 +15,33 @@ import './Employee.css';
 
 const EmployeeDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation();
-  const currentUser = useStore(state => state.currentUser);
-  const employees = useStore(state => state.employees);
-  const attendanceRecords = useStore(state => state.attendanceRecords);
-  const workReports = useStore(state => state.workReports);
-  const dailyTaskProgress = useStore(state => state.dailyTaskProgress);
-  const workAssignments = useStore(state => state.workAssignments);
-  const submitAttendance = useStore(state => state.submitAttendance);
-  const approveWorkReport = useStore(state => state.approveWorkReport);
-  const rejectWorkReport = useStore(state => state.rejectWorkReport);
-  const updateTaskProgress = useStore(state => state.updateTaskProgress);
-  const submittedChecklists = useStore(state => state.submittedChecklists);
-  const submitDailyChecklist = useStore(state => state.submitDailyChecklist);
+  const {
+    currentUser,
+    employees,
+    attendanceRecords,
+    workReports,
+    dailyTaskProgress,
+    workAssignments,
+    submitAttendance,
+    approveWorkReport,
+    rejectWorkReport,
+    updateTaskProgress,
+    submittedChecklists,
+    submitDailyChecklist,
+    companies,
+    locations
+  } = useStore();
+
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showScanner, setShowScanner] = useState(false);
+  const [deepLinkPunch, setDeepLinkPunch] = useState<{ token: string; locationId: string } | null>(null);
 
   // Get current employee record
   const employee = employees.find(e => e.userId === currentUser?.id);
-  const company = useStore.getState().companies.find(c => c.id === employee?.companyId);
-  const location = useStore.getState().locations.find(l => l.id === employee?.locationId);
+  const company = companies.find(c => c.id === employee?.companyId);
+  const location = locations.find(l => l.id === employee?.locationId);
   
   const role = employee?.role as EmployeeRole;
   
@@ -67,6 +74,21 @@ const EmployeeDashboard: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const punchToken = searchParams.get('punch_token');
+    const locId = searchParams.get('location_id');
+    if (punchToken && locId) {
+       // Deep link detected
+       setDeepLinkPunch({ token: punchToken, locationId: locId });
+       setShowScanner(true);
+       // Clear params
+       const newParams = new URLSearchParams(searchParams);
+       newParams.delete('punch_token');
+       newParams.delete('location_id');
+       setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const toggleTask = (taskId: string) => {
     if (!employee || isSubmittedToday) return;
     const newTasks = completedTasks.includes(taskId)
@@ -91,6 +113,7 @@ const EmployeeDashboard: React.FC = () => {
       console.error('Submission failed:', err);
     } finally {
       setShowScanner(false);
+      setDeepLinkPunch(null);
     }
   };
 
@@ -220,11 +243,6 @@ const EmployeeDashboard: React.FC = () => {
         </section>
       )}
 
-      {/* Operational Pulse */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem' }}>
-         {/* Replaced by Command Header above */}
-      </div>
-
       {/* Operational Nexus */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2.5rem' }}>
         <motion.div whileHover={{ y: -5 }} whileTap={{ scale: 0.98 }}>
@@ -317,8 +335,6 @@ const EmployeeDashboard: React.FC = () => {
         </button>
       </div>
 
-      {/* Operational Readiness Checked */}
-
       {/* Role-Based Tasks */}
       <section className="tasks-container-field" style={{ marginBottom: '8rem' }}>
         <div className="tasks-header-field" style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem' }}>
@@ -385,7 +401,7 @@ const EmployeeDashboard: React.FC = () => {
                   DAILY OPERATIONS CERTIFIED
                 </div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, marginTop: '4px', textTransform: 'uppercase' }}>
-                  Finalized on {new Date(submittedChecklists[employee?.id || '']).toLocaleTimeString()}
+                  Finalized on {employee && submittedChecklists[employee.id] ? new Date(submittedChecklists[employee.id]).toLocaleTimeString() : ''}
                 </div>
               </div>
             )}
@@ -398,7 +414,11 @@ const EmployeeDashboard: React.FC = () => {
         {showScanner && (
           <AttendanceScanner 
             action={isClockedIn ? 'out' : 'in'}
-            onCancel={() => setShowScanner(false)} 
+            initialPayload={deepLinkPunch || undefined}
+            onCancel={() => {
+              setShowScanner(false);
+              setDeepLinkPunch(null);
+            }} 
             onComplete={handleScannerComplete} 
           />
         )}

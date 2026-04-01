@@ -107,7 +107,7 @@ const AttendanceLoggingQR: React.FC = () => {
             <div style={{ padding: '3.5rem', background: '#fff', borderRadius: '50px', boxShadow: '0 40px 100px rgba(0,0,0,0.1)', marginBottom: '3rem', position: 'relative', display: 'inline-block' }}>
               <div style={{ background: '#fff', borderRadius: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', border: '1px solid #f1f5f9' }}>
                 <QRCodeCanvas 
-                  value={`pyramid-fm-punch:${location?.qrToken}:${location?.id}`}
+                  value={`${window.location.origin}/punch?t=${location?.qrToken}&l=${location?.id}`}
                   size={350}
                   level="H"
                   includeMargin={true}

@@ -236,6 +236,20 @@
   padding: 1.75rem 2rem;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ui-modal-header h2 {
+  font-size: 1.5rem;
+  font-weight: 900;
+  margin: 0;
+  background: var(--grad-premium);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.02em;
 }
 
 .ui-modal-body {

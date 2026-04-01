@@ -323,16 +323,17 @@ const ReturnsManagement: React.FC = () => {
               }}>
                 <div>
                   <div className="text-muted" style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>Reference</div>
-                  <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedReturn.id}</div>
+                  <div style={{ fontWeight: 700, fontSize: '1.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={selectedReturn.id}>{selectedReturn.id}</div>
                 </div>
                 <div>
                   <div className="text-muted" style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>Order</div>
-                  <div className="text-primary" style={{ fontWeight: 700, fontSize: '1.1rem' }}>{selectedReturn.orderId}</div>
+                  <div className="text-primary" style={{ fontWeight: 700, fontSize: '1.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={selectedReturn.orderId}>{selectedReturn.orderId}</div>
                 </div>
                 <div>
                   <div className="text-muted" style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>Client</div>
-                  <div style={{ fontWeight: 700 }}>{companies.find(c => c.id === selectedReturn.companyId)?.name || 'Unknown'}</div>
+                  <div style={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{companies.find(c => c.id === selectedReturn.companyId)?.name || 'Unknown'}</div>
                 </div>
+
                 <div>
                   <div className="text-muted" style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.5rem' }}>Status</div>
                   {getStatusBadge(selectedReturn.status)}
@@ -350,6 +351,7 @@ const ReturnsManagement: React.FC = () => {
                       <tr>
                         <th style={{ padding: '0.75rem 1rem', textAlign: 'left' }}>Product</th>
                         <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Quantity</th>
+                        <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Subtotal</th>
                       </tr>
                     </thead>
                     <tbody>

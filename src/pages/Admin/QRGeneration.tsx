@@ -30,7 +30,7 @@ const QRGeneration: React.FC<{ isTab?: boolean }> = ({ isTab }) => {
   };
 
   const qrValue = selectedLocation?.qrToken 
-    ? `pyramid-fm-punch:${selectedLocation.qrToken}:${selectedLocation.id}` 
+    ? `${window.location.origin}/punch?t=${selectedLocation.qrToken}&l=${selectedLocation.id}` 
     : '';
 
   return (

@@ -119,7 +119,7 @@ interface AppState {
   setClientPrice: (companyId: string, productId: string, price: number) => Promise<void>;
 
   // Inventory
-  updateInventoryQuantity: (productId: string, warehouseId: string, quantityDelta: number, reason?: string, batchId?: string) => void;
+  updateStock: (productId: string, warehouseId: string, quantityDelta: number, reason?: string, userId?: string, batchId?: string) => Promise<void>;
   transferStock: (productId: string, fromWarehouseId: string, toWarehouseId: string, quantity: number) => void;
   processInventoryMovement: (orderId: string, fromStatus: Order['status'], toStatus: Order['status']) => void;
   calculateDemandForecast: (productId: string) => ForecastData[];
@@ -330,6 +330,9 @@ export const useStore = create<AppState>()(
           if (profile) {
             set({ currentUser: profile });
             get().addAlert({ message: `Access Authorized: ${profile.name}`, type: 'success' });
+            
+            // Hydrate data immediately
+            await get().initSupabase();
             return true;
           }
         }
@@ -338,7 +341,7 @@ export const useStore = create<AppState>()(
       }
     }
 
-    // 2. Fallback to mock logic (same as before)
+    // 2. Fallback to mock logic
     let targetCompanyId: string | undefined;
     const isSystemAdmin = companyIdentifier.toUpperCase() === 'SYSTEM' || !companyIdentifier;
     if (!isSystemAdmin) {
@@ -355,8 +358,12 @@ export const useStore = create<AppState>()(
       return matchesIdentifier && u.companyId === targetCompanyId;
     });
     if (user && await verifyPassword(password, user.password || '')) {
-      set({ currentUser: sanitizeUser(user) as User });
+      const sanitized = sanitizeUser(user);
+      set({ currentUser: sanitized as User });
       get().addAlert({ message: `Access Authorized: ${user.name}${isSystemAdmin ? ' (System)' : ''}`, type: 'success' });
+      
+      // Hydrate even for mock login to sync whatever is available
+      await get().initSupabase();
       return true;
     }
     return false;
@@ -365,72 +372,106 @@ export const useStore = create<AppState>()(
     // In Supabase mode, we use supabase.auth.signOut()
     await supabase.auth.signOut();
     get().addAlert({ message: 'Logged out successfully.', type: 'info' });
-    set({ currentUser: null, cart: [] });
+    
+    // Clear all operational state on logout to prevent data leakage between sessions
+    set({ 
+      currentUser: null, 
+      cart: [],
+      orders: [],
+      attendanceRecords: [],
+      workReports: [],
+      fieldIncidents: [],
+      auditLogs: [],
+      inventoryLogs: [],
+      timeOffRequests: [],
+      employeeShifts: [],
+      notifications: [],
+    });
+    
+    // Re-run init to restore base state
+    await get().initSupabase();
   },
 
   initSupabase: async () => {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const { addAlert } = get();
     
-    if (!url || !key || url.includes('placeholder')) {
-       set({ isSupabaseConnected: false });
-       console.warn('⚠️ SUPABASE: Missing VITE_SUPABASE_URL/KEY. Running in Legacy Local Mode.');
-    } else {
-       console.log('📡 Heartbeat: Attempting Secure Connection to', url);
-       const isReachable = await SupabaseService.checkConnection();
-       set({ isSupabaseConnected: isReachable });
-       
-       if (!isReachable) {
-         console.error('❌ SUPABASE: Connection failed or Schema missing (Run final_schema.sql in Supabase SQL Editor).');
-         get().addAlert({ message: 'Cloud Sync Offline: Running on Local Reserve.', type: 'warning' });
-       } else {
-         console.log('✅ SUPABASE: Operational Hub Connected.');
-       }
+    // Check if Supabase keys exist
+    const isConfigured = !!import.meta.env.VITE_SUPABASE_URL && 
+                       !import.meta.env.VITE_SUPABASE_URL.includes('YOUR_');
+                       
+    if (!isConfigured) {
+      console.log('ℹ️ Supabase not configured. Using local persistence only.');
+      set({ isSupabaseConnected: false });
+      return;
     }
 
-    if (!get().isSupabaseConnected) return;
-
-    console.log('🔌 Supabase Online: Synchronizing Operational Hub...');
-
-    const fetchData = async <K extends keyof AppState>(
-      label: string, 
-      fetcher: () => Promise<any>, 
-      setter: (data: any) => void,
-      _stateKey: K
-    ) => {
-      try {
-        const cloudData = await fetcher();
-        if (cloudData && Array.isArray(cloudData) && cloudData.length > 0) {
-          setter(cloudData);
-          console.log(`✅ Synced: ${label}`);
-        } else {
-          console.log(`ℹ️ Cloud ${label} empty. Retaining local cache.`);
-        }
-      } catch (err: any) {
-        console.error(`❌ Sync Failed [${label}]:`, err.message || err);
-      }
-    };
-
-    // Parallel data hydration with Safety Merge
-    await Promise.all([
-      fetchData('Products', () => SupabaseService.getProducts(), (products) => set({ products }), 'products'),
-      fetchData('Companies', () => SupabaseService.getCompanies(), (companies) => set({ companies }), 'companies'),
-      fetchData('Orders', () => SupabaseService.getOrders(), (orders) => set({ orders }), 'orders'),
-      fetchData('Incidents', () => SupabaseService.getIncidents(), (fieldIncidents) => set({ fieldIncidents }), 'fieldIncidents'),
-      fetchData('Work Reports', () => SupabaseService.getWorkReports(), (workReports) => set({ workReports }), 'workReports'),
-      fetchData('Attendance', () => SupabaseService.getAttendance(), (attendanceRecords) => set({ attendanceRecords }), 'attendanceRecords'),
-      fetchData('Users', () => SupabaseService.getUsers(), (users) => set({ users }), 'users'),
-    ]);
-
-    // If we have a session, set current user
     try {
-      const currentUser = await SupabaseService.getCurrentUser();
-      if (currentUser) {
-        set({ currentUser });
-        console.log(`👤 Auth Verified: ${currentUser.name}`);
+      const isReachable = await SupabaseService.checkConnection();
+      if (!isReachable) {
+        set({ isSupabaseConnected: false });
+        console.warn('⚠️ Supabase unreachable. Falling back to local cache.');
+        return;
       }
-    } catch {
-      console.warn('Current user verification skipped.');
+
+      set({ isSupabaseConnected: true });
+      console.log('⚡ Digital Nexus: Cloud Sync Active');
+
+      const fetchData = async <K extends keyof AppState>(
+        label: string, 
+        fetcher: () => Promise<any>, 
+        setter: (data: any) => void,
+        _stateKey: K
+      ) => {
+        try {
+          const cloudData = await fetcher();
+          if (cloudData && Array.isArray(cloudData) && cloudData.length > 0) {
+            setter(cloudData);
+            console.log(`✅ Synced: ${label}`);
+          } else {
+            console.log(`ℹ️ Cloud ${label} empty. Retaining local cache.`);
+          }
+        } catch (err: any) {
+          console.error(`❌ Sync Failed [${label}]:`, err.message || err);
+        }
+      };
+
+      // Atomic hydration sequence
+      await Promise.all([
+        fetchData('Products', SupabaseService.getProducts, (d) => set({ products: d }), 'products'),
+        fetchData('Companies', SupabaseService.getCompanies, (d) => set({ companies: d }), 'companies'),
+        fetchData('Locations', () => SupabaseService.getLocations(), (d) => set({ locations: d }), 'locations'),
+        fetchData('Orders', () => SupabaseService.getOrders(), (d) => set({ orders: d }), 'orders'),
+        fetchData('Inventory', SupabaseService.getInventory, (d) => set({ inventory: d }), 'inventory'),
+        fetchData('Users', SupabaseService.getUsers, (d) => set({ users: d }), 'users'),
+        fetchData('Attendance', () => SupabaseService.getAttendance(), (d) => set({ attendanceRecords: d }), 'attendanceRecords'),
+        fetchData('Work Reports', SupabaseService.getWorkReports, (d) => set({ workReports: d }), 'workReports'),
+        fetchData('Incidents', SupabaseService.getIncidents, (d) => set({ fieldIncidents: d }), 'fieldIncidents'),
+        fetchData('Time Off', SupabaseService.getTimeOffRequests, (d) => set({ timeOffRequests: d }), 'timeOffRequests'),
+        fetchData('Shifts', SupabaseService.getShifts, (d) => set({ employeeShifts: d }), 'employeeShifts'),
+        fetchData('Employees', SupabaseService.getEmployees, (d) => set({ employees: d }), 'employees'),
+        fetchData('Protocols', SupabaseService.getSiteProtocols, (d) => set({ siteProtocols: d }), 'siteProtocols'),
+        fetchData('Assignments', SupabaseService.getWorkAssignments, (d) => set({ workAssignments: d }), 'workAssignments'),
+        fetchData('Bundles', SupabaseService.getProductBundles, (d) => set({ productBundles: d }), 'productBundles'),
+        fetchData('Roles', SupabaseService.getCustomRoles, (d) => set({ customRoles: d }), 'customRoles'),
+        fetchData('Audit Logs', SupabaseService.getAuditLogs, (d) => set({ auditLogs: d }), 'auditLogs'),
+        fetchData('Inventory Logs', SupabaseService.getInventoryLogs, (d) => set({ inventoryLogs: d }), 'inventoryLogs'),
+      ]);
+
+      // Attempt to restore session
+      try {
+        const currentUser = await SupabaseService.getCurrentUser();
+        if (currentUser) {
+          set({ currentUser });
+          console.log(`👤 Auth Verified: ${currentUser.name}`);
+        }
+      } catch {
+        console.warn('Current user verification skipped.');
+      }
+
+    } catch (err: any) {
+      console.error('CRITICAL: Supabase hydration crashed:', err);
+      addAlert({ message: 'Cloud sync interrupted. Running in local-only mode.', type: 'warning' });
+      set({ isSupabaseConnected: false });
     }
   },
 
@@ -673,7 +714,7 @@ export const useStore = create<AppState>()(
         request.items.forEach(item => {
           // Add back to default warehouse for simplicity or use the one from the order
           const warehouseId = order?.warehouseId || 'w1';
-          get().updateInventoryQuantity(item.productId, warehouseId, item.quantity, `Return Restock (${id})`);
+          get().updateStock(item.productId, warehouseId, item.quantity, `Return Restock (${id})`, 'system');
         });
       }
     } else if (status === 'rejected') {
@@ -894,15 +935,20 @@ export const useStore = create<AppState>()(
     };
   }),
 
-  logAction: (userId, action, details) => set((state) => ({
-    auditLogs: [{
-      id: `log-${Date.now()}`,
-      userId,
-      action,
-      details,
-      createdAt: new Date().toISOString()
-    }, ...state.auditLogs]
-  })),
+  logAction: async (userId, action, details) => {
+    if (get().isSupabaseConnected) {
+      await SupabaseService.logAction(userId, action, details);
+    }
+    set((state) => ({
+      auditLogs: [{
+        id: `log-${Date.now()}`,
+        userId,
+        action,
+        details,
+        createdAt: new Date().toISOString()
+      }, ...state.auditLogs]
+    }));
+  },
 
   addNotification: (notification) => set((state) => ({
     notifications: [{
@@ -1292,41 +1338,42 @@ export const useStore = create<AppState>()(
 
     if (get().isSupabaseConnected) {
       await SupabaseService.upsertClientPricing({
-        companyId, productId, negotiatedPrice: price
+           companyId, productId, negotiatedPrice: price
       });
     }
 
     set({ clientPricing: newPricing });
   },
 
-  updateInventoryQuantity: (productId, warehouseId, quantityDelta, reason = 'Adjustment', batchId) => {
-    const userId = get().currentUser?.id || 'admin';
-    set((state) => {
-      const item = state.inventory.find(i => i.productId === productId && i.warehouseId === warehouseId);
-      const previousQty = item?.quantity || 0;
-      const newQty = Math.max(0, previousQty + quantityDelta);
+  updateStock: async (productId: string, warehouseId: string, quantityDelta: number, reason?: string, userId?: string, batchId?: string) => {
+    const actorId = userId || get().currentUser?.id || 'system';
+    const state = get();
+    const item = state.inventory.find(i => i.productId === productId && i.warehouseId === warehouseId);
+    const previousQty = item?.quantity || 0;
+    const newQty = Math.max(0, previousQty + quantityDelta);
+    const timestamp = new Date().toISOString();
 
-      // If batch included, update batch too
+    const newLog: InventoryLog = {
+      id: generateUUID(),
+      productId,
+      warehouseId,
+      type: quantityDelta > 0 ? 'REFILL' : 'SALE',
+      change: Math.abs(quantityDelta),
+      previousQuantity: previousQty,
+      newQuantity: newQty,
+      referenceId: batchId || 'MANUAL',
+      performedBy: actorId,
+      createdAt: timestamp,
+      notes: reason || 'Manual adjustment'
+    };
+
+    set((state) => {
       let newBatches = state.batches;
       if (batchId) {
         newBatches = state.batches.map(b => 
           b.id === batchId ? { ...b, quantity: Math.max(0, b.quantity + quantityDelta) } : b
         );
       }
-
-      const newLog: InventoryLog = {
-        id: generateUUID(),
-        productId,
-        warehouseId,
-        type: quantityDelta > 0 ? 'REFILL' : 'SALE',
-        change: Math.abs(quantityDelta),
-        previousQuantity: previousQty,
-        newQuantity: newQty,
-        referenceId: batchId || 'MANUAL',
-        performedBy: userId,
-        createdAt: new Date().toISOString(),
-        notes: reason || 'Manual adjustment'
-      };
 
       return {
         inventory: state.inventory.map(i => 
@@ -1339,32 +1386,22 @@ export const useStore = create<AppState>()(
             : i
         ),
         batches: newBatches,
-        inventoryLogs: [newLog, ...state.inventoryLogs].slice(0, 1000) // Keep last 1000 logs
+        inventoryLogs: [newLog, ...state.inventoryLogs].slice(0, 1000)
       };
     });
     
-    // Trigger internal check instead of relying on component effects
     get().checkLowStock();
-
     const product = get().products.find(p => p.id === productId);
-    get().logAction(userId, 'inventory_adjustment', `Adjusted ${product?.name || productId} stock in ${warehouseId} by ${quantityDelta}. Reason: ${reason}`);
+    get().logAction(actorId, 'inventory_adjustment', `Adjusted ${product?.name || productId} stock in ${warehouseId} by ${quantityDelta}. Reason: ${reason}`);
 
     if (get().isSupabaseConnected) {
-      const item = get().inventory.find(i => i.productId === productId && i.warehouseId === warehouseId);
-      if (item) {
-        SupabaseService.updateStock(productId, warehouseId, quantityDelta).then();
-      }
+      SupabaseService.updateStock(productId, warehouseId, newQty).then();
+      SupabaseService.addInventoryLog(newLog).then();
     }
 
-    // Check for Low Stock Email Alert
-    const item = get().inventory.find(i => i.productId === productId && i.warehouseId === warehouseId);
-    if (item && item.quantity <= item.lowStockThreshold) {
-      EmailTemplates.lowStockAlert(
-        'admin@pyramidfm.com', 
-        product?.name || productId, 
-        item.quantity, 
-        item.lowStockThreshold
-      ).then();
+    if (newQty <= (item?.lowStockThreshold || 0)) {
+       const adminEmail = get().settings.supportEmail || 'admin@pyramidfm.com';
+       EmailTemplates.lowStockAlert(adminEmail, product?.name || productId, newQty, item?.lowStockThreshold || 0).then();
     }
   },
 
@@ -1415,69 +1452,76 @@ export const useStore = create<AppState>()(
       batches: [newBatch, ...state.batches]
     }));
     // Also update total inventory for that product/warehouse
-    await get().updateInventoryQuantity(newBatch.productId, newBatch.warehouseId, newBatch.quantity, 'Manual Batch Entry');
+    await get().updateStock(newBatch.productId, newBatch.warehouseId, newBatch.quantity, 'Manual Batch Entry');
   },
 
   transferStock: (productId, fromWarehouseId, toWarehouseId, quantity) => {
     const userId = get().currentUser?.id || 'admin';
     const timestamp = new Date().toISOString();
+    const state = get();
     
-    set((state) => {
-      const fromItem = state.inventory.find(i => i.productId === productId && i.warehouseId === fromWarehouseId);
-      const toItem = state.inventory.find(i => i.productId === productId && i.warehouseId === toWarehouseId);
-      
-      if (!fromItem || fromItem.quantity < quantity) {
-        console.error('Insufficient stock for transfer');
-        return {};
-      }
+    const fromItem = state.inventory.find(i => i.productId === productId && i.warehouseId === fromWarehouseId);
+    const toItem = state.inventory.find(i => i.productId === productId && i.warehouseId === toWarehouseId);
+    
+    if (!fromItem || fromItem.quantity < quantity) {
+      console.error('Insufficient stock for transfer');
+      return;
+    }
 
-      const prevFromQty = fromItem.quantity;
-      const newFromQty = fromItem.quantity - quantity;
-      const prevToQty = toItem?.quantity || 0;
-      const newToQty = prevToQty + quantity;
+    const prevFromQty = fromItem.quantity;
+    const newFromQty = fromItem.quantity - quantity;
+    const prevToQty = toItem?.quantity || 0;
+    const newToQty = prevToQty + quantity;
 
-      // Create Logs
-      const logOut: InventoryLog = {
-        id: `trans-out-${Date.now()}`,
-        productId,
-        warehouseId: fromWarehouseId,
-        type: 'TRANSFER_OUT',
-        change: -quantity,
-        previousQuantity: prevFromQty,
-        newQuantity: newFromQty,
-        referenceId: `TRF-${fromWarehouseId}-${toWarehouseId}`,
-        performedBy: userId,
-        createdAt: timestamp,
-        notes: `Transfer to ${toWarehouseId}`
-      };
+    const logOut: InventoryLog = {
+      id: generateUUID(),
+      productId,
+      warehouseId: fromWarehouseId,
+      type: 'TRANSFER_OUT',
+      change: -quantity,
+      previousQuantity: prevFromQty,
+      newQuantity: newFromQty,
+      referenceId: `TRF-${fromWarehouseId}-${toWarehouseId}`,
+      performedBy: userId,
+      createdAt: timestamp,
+      notes: `Transfer to ${toWarehouseId}`
+    };
 
-      const logIn: InventoryLog = {
-        id: `trans-in-${Date.now()}`,
-        productId,
-        warehouseId: toWarehouseId,
-        type: 'TRANSFER_IN',
-        change: quantity,
-        previousQuantity: prevToQty,
-        newQuantity: newToQty,
-        referenceId: `TRF-${fromWarehouseId}-${toWarehouseId}`,
-        performedBy: userId,
-        createdAt: timestamp,
-        notes: `Transfer from ${fromWarehouseId}`
-      };
+    const logIn: InventoryLog = {
+      id: generateUUID(),
+      productId,
+      warehouseId: toWarehouseId,
+      type: 'TRANSFER_IN',
+      change: quantity,
+      previousQuantity: prevToQty,
+      newQuantity: newToQty,
+      referenceId: `TRF-${fromWarehouseId}-${toWarehouseId}`,
+      performedBy: userId,
+      createdAt: timestamp,
+      notes: `Transfer from ${fromWarehouseId}`
+    };
 
-      return {
-        inventory: state.inventory.map(i => {
-          if (i.productId === productId && i.warehouseId === fromWarehouseId) {
-            return { ...i, quantity: newFromQty, availableQuantity: (i.availableQuantity ?? i.quantity) - quantity };
-          }
-          if (i.productId === productId && i.warehouseId === toWarehouseId) {
-            return { ...i, quantity: newToQty, availableQuantity: (i.availableQuantity ?? i.quantity) + quantity };
-          }
-          return i;
-        }),
-        inventoryLogs: [logIn, logOut, ...state.inventoryLogs].slice(0, 1000)
-      };
-    });
+    set((state) => ({
+      inventory: state.inventory.map(i => {
+        if (i.productId === productId && i.warehouseId === fromWarehouseId) {
+          return { ...i, quantity: newFromQty, availableQuantity: (i.availableQuantity ?? i.quantity) - quantity };
+        }
+        if (i.productId === productId && i.warehouseId === toWarehouseId) {
+          return { ...i, quantity: newToQty, availableQuantity: (i.availableQuantity ?? i.quantity) + quantity };
+        }
+        return i;
+      }),
+      inventoryLogs: [logIn, logOut, ...state.inventoryLogs].slice(0, 1000)
+    }));
+
+    if (get().isSupabaseConnected) {
+      Promise.all([
+        SupabaseService.updateStock(productId, fromWarehouseId, newFromQty),
+        SupabaseService.updateStock(productId, toWarehouseId, newToQty),
+        SupabaseService.addInventoryLog(logOut),
+        SupabaseService.addInventoryLog(logIn)
+      ]).catch(err => console.error('Transfer Sync Failed:', err));
+    }
 
     const product = get().products.find(p => p.id === productId);
     get().logAction(userId, 'inventory_transfer', `Transferred ${quantity} ${product?.uom || 'units'} of ${product?.name} from ${fromWarehouseId} to ${toWarehouseId}`);
@@ -1793,8 +1837,11 @@ export const useStore = create<AppState>()(
     if (get().isSupabaseConnected) {
       const user = await SupabaseService.loginWithQR(token);
       if (user) {
-        set({ currentUser: user });
+        set({ currentUser: user as User });
         get().logAction(user.id, 'qr_login', `Logged in via QR code (Token: ${token.slice(0, 5)}...)`);
+        
+        // Hydrate data immediately
+        await get().initSupabase();
         return true;
       }
     }
@@ -1805,6 +1852,9 @@ export const useStore = create<AppState>()(
       if (user) {
         set({ currentUser: user });
         get().logAction(user.id, 'qr_login', `Logged in via QR code (Token: ${token.slice(0, 5)}...)`);
+        
+        // Refresh session data
+        await get().initSupabase();
         return true;
       }
     }
@@ -2131,18 +2181,30 @@ export const useStore = create<AppState>()(
 
   // Employee Module Implementations
   addEmployee: async (employee) => {
-    const newEmployee: Employee = { ...employee, id: generateUUID() };
-    set(state => ({ employees: [...state.employees, newEmployee] }));
+    const { isSupabaseConnected } = get();
+    if (isSupabaseConnected) {
+      const newEmp = await SupabaseService.addEmployee(employee);
+      set(state => ({ employees: [...state.employees, newEmp] }));
+    } else {
+      const newEmployee: Employee = { ...employee, id: generateUUID() };
+      set(state => ({ employees: [...state.employees, newEmployee] }));
+    }
     get().addAlert({ message: `Employee ${employee.name} added.`, type: 'success' });
   },
 
   updateEmployee: async (id, updates) => {
+    if (get().isSupabaseConnected) {
+      await SupabaseService.updateEmployee(id, updates);
+    }
     set(state => ({
       employees: state.employees.map(e => e.id === id ? { ...e, ...updates } : e)
     }));
   },
 
   deleteEmployee: async (id) => {
+    if (get().isSupabaseConnected) {
+      await SupabaseService.deleteEmployee(id);
+    }
     set(state => ({ employees: state.employees.filter(e => e.id !== id) }));
   },
 
@@ -2160,10 +2222,12 @@ export const useStore = create<AppState>()(
       }
     }
 
+    const now = new Date().toISOString();
     const newReport: WorkReport = {
       ...report,
       id: generateUUID(),
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      timestamp: now,
       status: 'pending',
       imageUrl: finalImageUrl
     };
@@ -2184,6 +2248,9 @@ export const useStore = create<AppState>()(
     }
   },
   approveWorkReport: async (reportId, supervisorId) => {
+    if (get().isSupabaseConnected) {
+      await SupabaseService.updateWorkReport(reportId, { status: 'approved', approvedBy: supervisorId });
+    }
     set(state => ({
       workReports: state.workReports.map(r => 
         r.id === reportId ? { ...r, status: 'approved', approvedBy: supervisorId } : r
@@ -2192,6 +2259,9 @@ export const useStore = create<AppState>()(
     get().addAlert({ message: 'Report Approved.', type: 'success' });
   },
   rejectWorkReport: async (reportId, supervisorId) => {
+    if (get().isSupabaseConnected) {
+      await SupabaseService.updateWorkReport(reportId, { status: 'rejected', approvedBy: supervisorId });
+    }
     set(state => ({
       workReports: state.workReports.map(r => 
         r.id === reportId ? { ...r, status: 'rejected', approvedBy: supervisorId } : r
@@ -2248,6 +2318,7 @@ export const useStore = create<AppState>()(
         }
       }
     } else {
+      const now = new Date().toISOString();
       const newRecord: AttendanceRecord = {
         id: generateUUID(),
         employeeId,
@@ -2256,8 +2327,8 @@ export const useStore = create<AppState>()(
         type: 'in',
         latitude,
         longitude,
-        timestamp,
-        checkIn: timestamp,
+        timestamp: now,
+        checkIn: now,
         status: matchScore >= 90 ? 'verified' : 'pending',
         metadata: metadata || {}
       };
@@ -2279,8 +2350,11 @@ export const useStore = create<AppState>()(
   },
 
   // Phase 49 Actions
-  generateLocationQR: (locationId) => {
+  generateLocationQR: async (locationId) => {
     const token = generateUUID();
+    if (get().isSupabaseConnected) {
+      await SupabaseService.updateLocation(locationId, { qrToken: token, qrStatus: 'active' });
+    }
     set(state => ({
       locations: state.locations.map(loc => 
         loc.id === locationId ? { ...loc, qrToken: token, qrStatus: 'active' } : loc
@@ -2289,8 +2363,11 @@ export const useStore = create<AppState>()(
     get().addAlert({ message: 'Secure Site QR code generated.', type: 'success' });
   },
 
-  rotateLocationToken: (locationId) => {
+  rotateLocationToken: async (locationId) => {
     const token = generateUUID();
+    if (get().isSupabaseConnected) {
+      await SupabaseService.updateLocation(locationId, { qrToken: token, qrStatus: 'active' });
+    }
     set(state => ({
       locations: state.locations.map(loc => 
         loc.id === locationId ? { ...loc, qrToken: token, qrStatus: 'active' } : loc
@@ -2298,7 +2375,10 @@ export const useStore = create<AppState>()(
     }));
   },
 
-  updateLocationCoordinates: (locationId, latitude, longitude) => {
+  updateLocationCoordinates: async (locationId, latitude, longitude) => {
+    if (get().isSupabaseConnected) {
+       await SupabaseService.updateLocation(locationId, { latitude, longitude });
+    }
     set(state => ({
       locations: state.locations.map(loc => 
         loc.id === locationId ? { ...loc, latitude, longitude } : loc
@@ -2307,7 +2387,13 @@ export const useStore = create<AppState>()(
     get().addAlert({ message: 'Site telemetry coordinates locked.', type: 'info' });
   },
 
-  updateAttendanceTag: (recordId: string, tag: string) => {
+  updateAttendanceTag: async (recordId: string, tag: string) => {
+    if (get().isSupabaseConnected) {
+      const record = get().attendanceRecords.find(r => r.id === recordId);
+      if (record) {
+        await SupabaseService.updateAttendanceRecord(recordId, { metadata: { ...record.metadata, workTag: tag } });
+      }
+    }
     set(state => ({
       attendanceRecords: state.attendanceRecords.map(r => 
         r.id === recordId ? { ...r, metadata: { ...r.metadata, workTag: tag } } : r
@@ -2316,6 +2402,9 @@ export const useStore = create<AppState>()(
   },
 
   approveAttendance: async (id: string) => {
+    if (get().isSupabaseConnected) {
+      await SupabaseService.updateAttendanceRecord(id, { status: 'verified', adminRemarks: 'Biometrically Authenticated' });
+    }
     set(state => ({
       attendanceRecords: state.attendanceRecords.map(r => 
         r.id === id ? { ...r, status: 'verified', adminRemarks: 'Biometrically Authenticated' } : r
@@ -2325,6 +2414,9 @@ export const useStore = create<AppState>()(
   },
 
   flagAttendance: async (id: string, reason: string) => {
+    if (get().isSupabaseConnected) {
+      await SupabaseService.updateAttendanceRecord(id, { status: 'flagged', adminRemarks: reason });
+    }
     set(state => ({
       attendanceRecords: state.attendanceRecords.map(r => 
         r.id === id ? { ...r, status: 'flagged', adminRemarks: reason } : r
@@ -2404,6 +2496,9 @@ export const useStore = create<AppState>()(
   },
 
   reassignShift: async (shiftId, locationId) => {
+    if (get().isSupabaseConnected) {
+      await SupabaseService.updateShift(shiftId, { locationId });
+    }
     set(state => ({
       employeeShifts: state.employeeShifts.map(s => 
         s.id === shiftId ? { ...s, locationId } : s
@@ -2417,14 +2512,24 @@ export const useStore = create<AppState>()(
   },
   
   addEmployeeShift: async (shift) => {
-    const newShift = { ...shift, id: generateUUID() };
-    set(state => ({
-      employeeShifts: [...state.employeeShifts, newShift as EmployeeShift]
-    }));
+    if (get().isSupabaseConnected) {
+       const newShift = await SupabaseService.addShift(shift);
+       set(state => ({
+         employeeShifts: [...state.employeeShifts, newShift as EmployeeShift]
+       }));
+    } else {
+      const newShift = { ...shift, id: generateUUID() };
+      set(state => ({
+        employeeShifts: [...state.employeeShifts, newShift as EmployeeShift]
+      }));
+    }
     get().addAlert({ message: 'New shift successfully charted.', type: 'success' });
   },
 
   deleteEmployeeShift: async (shiftId) => {
+    if (get().isSupabaseConnected) {
+      await SupabaseService.deleteShift(shiftId);
+    }
     set(state => ({
       employeeShifts: state.employeeShifts.filter(s => s.id !== shiftId)
     }));

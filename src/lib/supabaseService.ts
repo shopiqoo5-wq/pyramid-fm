@@ -180,8 +180,22 @@ export const SupabaseService = {
   },
 
   // --- AUDIT & EXCEPTIONS ---
-  async logAction(action: string, details: any) {
-    await supabase.from('audit_logs').insert({ action, details });
+  async getAuditLogs() {
+    const { data } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false });
+    return snakeToCamel(data || []);
+  },
+
+  async logAction(userId: string, action: string, details: any) {
+    await supabase.from('audit_logs').insert({ user_id: userId, action, details });
+  },
+
+  async getInventoryLogs() {
+    const { data } = await supabase.from('inventory_logs').select('*').order('timestamp', { ascending: false });
+    return snakeToCamel(data || []);
+  },
+  
+  async addInventoryLog(log: any) {
+    await supabase.from('inventory_logs').insert(camelToSnake(log));
   },
 
   async reportException(exception: any) {
@@ -315,7 +329,7 @@ export const SupabaseService = {
 
   // --- FIELD OPS ---
   async getIncidents() {
-    const { data, error } = await supabase.from('field_incidents').select('*');
+    const { data, error } = await supabase.from('field_incidents').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     return snakeToCamel(data || []);
   },
@@ -329,7 +343,7 @@ export const SupabaseService = {
   },
 
   async getWorkReports() {
-    const { data, error } = await supabase.from('work_reports').select('*');
+    const { data, error } = await supabase.from('work_reports').select('*').order('created_at', { ascending: false });
     if (error) throw error;
     return snakeToCamel(data || []);
   },
@@ -338,8 +352,12 @@ export const SupabaseService = {
     await supabase.from('work_reports').insert(camelToSnake(report));
   },
 
+  async updateWorkReport(id: string, updates: any) {
+    await supabase.from('work_reports').update(camelToSnake(updates)).eq('id', id);
+  },
+
   async getAttendance(locationId?: string) {
-    let query = supabase.from('attendance_records').select('*');
+    let query = supabase.from('attendance_records').select('*').order('timestamp', { ascending: false });
     if (locationId) query = query.eq('location_id', locationId);
     const { data, error } = await query;
     if (error) throw error;
@@ -348,6 +366,11 @@ export const SupabaseService = {
 
   async submitAttendance(record: any) {
     await supabase.from('attendance_records').insert(camelToSnake(record));
+  },
+
+  async getDailyChecklists() {
+    const { data } = await supabase.from('daily_checklists').select('*');
+    return snakeToCamel(data || []);
   },
 
   async submitDailyChecklist(employeeId: string, completedTasks: string[]) {
@@ -376,6 +399,25 @@ export const SupabaseService = {
     await supabase.from('time_off_requests').update(camelToSnake(updates)).eq('id', id);
   },
 
+  // --- SHIFTS ---
+  async getShifts() {
+    const { data } = await supabase.from('employee_shifts').select('*');
+    return snakeToCamel(data || []);
+  },
+
+  async addShift(shift: any) {
+    const { data } = await supabase.from('employee_shifts').insert(camelToSnake(shift)).select().single();
+    return snakeToCamel(data);
+  },
+
+  async updateShift(id: string, updates: any) {
+    await supabase.from('employee_shifts').update(camelToSnake(updates)).eq('id', id);
+  },
+
+  async deleteShift(id: string) {
+    await supabase.from('employee_shifts').delete().eq('id', id);
+  },
+
   // --- PROTOCOLS ---
   async getSiteProtocols() {
     const { data } = await supabase.from('site_protocols').select('*');
@@ -398,7 +440,8 @@ export const SupabaseService = {
   },
 
   async addCustomRole(role: any) {
-    await supabase.from('custom_roles').insert(camelToSnake(role));
+    const { data } = await supabase.from('custom_roles').insert(camelToSnake(role)).select().single();
+    return snakeToCamel(data);
   },
 
   async updateCustomRole(id: string, updates: any) {
@@ -415,7 +458,8 @@ export const SupabaseService = {
   },
 
   async addWorkAssignment(assignment: any) {
-    await supabase.from('work_assignments').insert(camelToSnake(assignment));
+    const { data } = await supabase.from('work_assignments').insert(camelToSnake(assignment)).select().single();
+    return snakeToCamel(data);
   },
 
   async updateWorkAssignment(id: string, updates: any) {
@@ -424,6 +468,12 @@ export const SupabaseService = {
 
   async deleteWorkAssignment(id: string) {
     await supabase.from('work_assignments').delete().eq('id', id);
+  },
+
+  // --- QUOTATIONS ---
+  async getQuotations() {
+    const { data } = await supabase.from('quotations').select('*');
+    return snakeToCamel(data || []);
   },
 
   // --- PRICING & SETTINGS ---

@@ -7,6 +7,7 @@ import { useStore } from '../../store';
 
 interface AttendanceScannerProps {
   action?: 'in' | 'out';
+  initialPayload?: { locationId: string; token: string };
   onCancel: () => void;
   onComplete: (data: { locationId: string; type: 'in' | 'out'; imageUrl: string; latitude: number; longitude: number }) => void;
 }
@@ -27,13 +28,13 @@ const haversineDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c; // in meters
 };
 
-const AttendanceScanner: React.FC<AttendanceScannerProps> = ({ action, onCancel, onComplete }) => {
+const AttendanceScanner: React.FC<AttendanceScannerProps> = ({ action, initialPayload, onCancel, onComplete }) => {
   const { locations, isSupabaseConnected } = useStore();
   
   const [step, setStep] = useState<ScanStep>('requesting_permissions');
   const [errorMsg, setErrorMsg] = useState('');
   
-  const [scannedData, setScannedData] = useState<{ locationId: string; token: string } | null>(null);
+  const [scannedData, setScannedData] = useState<{ locationId: string; token: string } | null>(initialPayload || null);
   const [gpsData, setGpsData] = useState<{ lat: number; lng: number } | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
@@ -44,17 +45,21 @@ const AttendanceScanner: React.FC<AttendanceScannerProps> = ({ action, onCancel,
 
   const requestPermissions = async () => {
     try {
-      // 1) Procure Camera Permissions (using any available camera to prevent OverconstrainedError on desktops)
+      // 1) Procure Camera Permissions
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('Camera mechanism unavailable (requires HTTPS or localhost).');
       }
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach(t => t.stop()); // Instantly release it, we just wanted the user consent payload.
+      stream.getTracks().forEach(t => t.stop()); 
 
       // 2) Procure Location Permissions
       navigator.geolocation.getCurrentPosition(
         () => {
-          setStep('scanning_qr');
+          if (initialPayload) {
+            setStep('verifying_location');
+          } else {
+            setStep('scanning_qr');
+          }
         },
         () => {
           setErrorMsg('GPS telemetry permission explicitly required for secure perimeter tracking.');
@@ -93,6 +98,21 @@ const AttendanceScanner: React.FC<AttendanceScannerProps> = ({ action, onCancel,
                       token: parts[1],
                       locationId: parts[2]
                     };
+                  }
+                } else if (decodedText.includes('/punch?t=')) {
+                  try {
+                    const url = new URL(decodedText);
+                    const token = url.searchParams.get('t');
+                    const locationId = url.searchParams.get('l');
+                    if (token && locationId) {
+                      payload = {
+                        type: 'geofence_auth',
+                        token,
+                        locationId
+                      };
+                    }
+                  } catch (e) {
+                    console.error('URL parse fail:', e);
                   }
                 }
 

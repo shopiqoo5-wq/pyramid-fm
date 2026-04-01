@@ -392,6 +392,7 @@ export interface WorkReport {
   latitude?: number;
   longitude?: number;
   createdAt: string;
+  timestamp?: string; // Added for component compatibility
   status: 'pending' | 'approved' | 'rejected';
   approvedBy?: string; // supervisor_id
 }

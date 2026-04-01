@@ -447,33 +447,34 @@ const AdminOrders: React.FC = () => {
             isOpen={!!selectedOrder}
             onClose={() => { setSelectedOrder(null); setDeliveryPhoto(null); }}
             title={`Logistics Intelligence: ${selectedOrder.customId}`}
-            style={{ maxWidth: '900px', '--primary': '#3b82f6' } as any}
+            style={{ maxWidth: '900px' } as any}
+            className="logistics-detail-modal"
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem', padding: '1rem 0' }}>
               {/* Header Info Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', background: 'var(--surface-hover)', padding: '2rem', borderRadius: '24px', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', background: 'var(--surface-raised)', padding: '2rem', borderRadius: '24px', border: '1px solid var(--border-glass)' }}>
                 <div className="input-group" style={{ margin: 0 }}>
-                  <label className="input-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tracking Ref</label>
+                  <label className="input-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--primary)' }}>Tracking Ref</label>
                   <div style={{ fontWeight: 900, fontSize: '1.2rem', color: 'var(--text-main)' }}>{selectedOrder.customId}</div>
                 </div>
                 <div className="input-group" style={{ margin: 0 }}>
-                  <label className="input-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Lifecycle Phase</label>
+                  <label className="input-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--primary)' }}>Lifecycle Phase</label>
                   <div>{getStatusBadge(selectedOrder.status)}</div>
                 </div>
                 <div className="input-group" style={{ margin: 0 }}>
-                  <label className="input-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fulfillment Hub</label>
-                  <div style={{ fontWeight: 800, fontSize: '1rem' }}>{selectedOrder.warehouseId === 'w2' ? 'North Regional' : 'Western Zone'}</div>
+                  <label className="input-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--primary)' }}>Fulfillment Hub</label>
+                  <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-main)' }}>{selectedOrder.warehouseId === 'w2' ? 'North Regional' : 'Western Zone'}</div>
                 </div>
                 <div className="input-group" style={{ margin: 0 }}>
-                  <label className="input-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Settlement Value</label>
-                  <div style={{ fontWeight: 900, color: 'var(--primary)', fontSize: '1.4rem' }}>{formatCurrency(selectedOrder.netAmount)}</div>
+                  <label className="input-label" style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--primary)' }}>Settlement Value</label>
+                  <div className="text-gradient" style={{ fontSize: '1.5rem', fontWeight: 900 }}>{formatCurrency(selectedOrder.netAmount)}</div>
                 </div>
               </div>
 
               {/* Manifest Items */}
               <div>
-                <h4 style={{ margin: '0 0 1.5rem 0', fontSize: '1.3rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-main)' }}>
-                  <LuPackage className="text-primary" /> Logistics Manifest
+                <h4 className="text-gradient" style={{ margin: '0 0 1.5rem 0', fontSize: '1.4rem', fontWeight: 900, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <LuPackage /> Logistics Manifest
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {selectedOrder.items.map((item, index) => {

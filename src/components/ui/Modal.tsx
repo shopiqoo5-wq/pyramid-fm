@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { LuX } from 'react-icons/lu';
 import './UI.css';
 
@@ -12,10 +13,29 @@ interface ModalProps {
   style?: React.CSSProperties;
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer, className = '', style }) => {
+export const Modal: React.FC<ModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  title, 
+  children, 
+  footer, 
+  className = '', 
+  style 
+}) => {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className={`ui-modal-overlay animate-fade-in ${className}`} onClick={onClose} style={style}>
       <div className="ui-modal-content" onClick={e => e.stopPropagation()}>
         <div className="ui-modal-header">
@@ -29,6 +49,8 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
         </div>
         {footer && <div className="ui-modal-footer">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
+
