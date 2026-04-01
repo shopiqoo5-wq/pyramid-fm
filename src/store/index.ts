@@ -2315,12 +2315,13 @@ export const useStore = create<AppState>()(
     let finalImageUrl = photoUrl;
 
     // Hardening Section: Convert Base64 identity captures to persistent Storage Blobs
-    if (isBase64 && photoUrl.startsWith('data:') && get().isSupabaseConnected) {
+    if (isBase64 && photoUrl && photoUrl.startsWith('data:') && get().isSupabaseConnected) {
       try {
         const blob = SupabaseService.base64ToBlob(photoUrl);
-        const path = `attendance/${employeeId}-${Date.now()}.jpg`;
+        const path = `attendance/${employeeId || 'anon'}-${Date.now()}.jpg`;
         finalImageUrl = await SupabaseService.uploadFile('attendance', path, blob);
-      } catch {
+      } catch (err: any) {
+        console.error('Storage Upload Error:', err.message || err);
         get().addAlert({ message: 'Identity photo persistence failed. Manual verification required.', type: 'error' });
       }
     }

@@ -415,11 +415,14 @@ export const SupabaseService = {
   async getIncidents() {
     const { data, error } = await supabase.from('field_incidents').select('*').order('created_at', { ascending: false });
     if (error) throw error;
-    return snakeToCamel(data || []);
+    const incidents = snakeToCamel(data || []);
+    return incidents.map((i: any) => ({ ...i, photos: i.photoUrls || [] }));
   },
 
   async submitIncident(incident: any) {
-    const { error } = await supabase.from('field_incidents').insert(camelToSnake(incident));
+    const { photos, ...incData } = incident;
+    const dataToSend = { ...incData, photoUrls: photos || [] };
+    const { error } = await supabase.from('field_incidents').insert(camelToSnake(dataToSend));
     if (error) throw error;
   },
 
@@ -431,11 +434,14 @@ export const SupabaseService = {
   async getWorkReports() {
     const { data, error } = await supabase.from('work_reports').select('*').order('created_at', { ascending: false });
     if (error) throw error;
-    return snakeToCamel(data || []);
+    const reports = snakeToCamel(data || []);
+    return reports.map((r: any) => ({ ...r, photos: r.photoUrls || [] }));
   },
 
   async submitWorkReport(report: any) {
-    const { error } = await supabase.from('work_reports').insert(camelToSnake(report));
+    const { photos, ...repData } = report;
+    const dataToSend = { ...repData, photoUrls: photos || [] };
+    const { error } = await supabase.from('work_reports').insert(camelToSnake(dataToSend));
     if (error) throw error;
   },
 
@@ -709,13 +715,20 @@ export const SupabaseService = {
   },
 
   base64ToBlob(base64: string, type: string = 'image/jpeg') {
-    const binStr = atob(base64.split(',')[1]);
-    const len = binStr.length;
-    const arr = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      arr[i] = binStr.charCodeAt(i);
+    try {
+      const parts = base64.split(',');
+      if (parts.length < 2) return new Blob([], { type });
+      const binStr = atob(parts[1]);
+      const len = binStr.length;
+      const arr = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        arr[i] = binStr.charCodeAt(i);
+      }
+      return new Blob([arr], { type });
+    } catch (e) {
+      console.error('base64ToBlob failed:', e);
+      return new Blob([], { type });
     }
-    return new Blob([arr], { type });
   },
 
   // --- FAVORITES ---

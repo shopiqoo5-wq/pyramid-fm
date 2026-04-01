@@ -286,10 +286,10 @@ const WorkforceHub: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                         <div 
                           style={{ width: '64px', height: '64px', borderRadius: '16px', overflow: 'hidden', border: '2px solid var(--border)', flexShrink: 0, cursor: 'zoom-in', position: 'relative' }}
-                          onClick={() => setSelectedEvidence({ imageUrl: att.imageUrl, type: 'attendance', name: emp?.name, timestamp: activity.ts })}
+                          onClick={() => setSelectedEvidence({ imageUrl: att.photoUrl, type: 'attendance', name: emp?.name, timestamp: activity.ts })}
                           className="lift"
                         >
-                           <img src={att.imageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Attendance" />
+                           <img src={att.photoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Attendance" />
                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)', opacity: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'opacity 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}>
                               <LuSearch color="#fff" size={20} />
                            </div>
