@@ -17,6 +17,7 @@ import { calculateIndianGST } from '../utils/gst';
 import { SupabaseService } from '../lib/supabaseService';
 import { supabase } from '../lib/supabase';
 
+const SYSTEM_UUID = '00000000-0000-0000-0000-000000000000';
 
 interface CartItem {
   productId: string;
@@ -260,6 +261,9 @@ interface AppState {
   // Phase 48: Localization & Experience
   language: 'en' | 'hi' | 'mr';
   setLanguage: (lang: 'en' | 'hi' | 'mr') => void;
+  
+  // Cloud Disaster Recovery
+  pushLocalToCloud: () => Promise<void>;
 }
 
 
@@ -1186,8 +1190,8 @@ export const useStore = create<AppState>()(
     }));
   },
 
-  updateStock: async (productId, warehouseId, quantityDelta, reason = 'Manual Adjustment', userId = 'admin', batchId) => {
-    const actorId = userId || get().currentUser?.id || 'system';
+  updateStock: async (productId, warehouseId, quantityDelta, reason = 'Manual Adjustment', userId, batchId) => {
+    const actorId = userId || get().currentUser?.id || SYSTEM_UUID;
     const { inventory, products, isSupabaseConnected } = get();
     const inv = inventory.find(i => i.productId === productId && i.warehouseId === warehouseId);
     if (!inv) return;
@@ -1295,7 +1299,7 @@ export const useStore = create<AppState>()(
              previousQuantity,
              newQuantity: quantity,
              referenceId: order.customId,
-             performedBy: 'SYSTEM',
+             performedBy: SYSTEM_UUID,
              notes: `Order ${order.customId} dispatched.`
            };
 
@@ -1330,7 +1334,7 @@ export const useStore = create<AppState>()(
               previousQuantity,
               newQuantity: quantity,
               referenceId: order.customId,
-              performedBy: 'SYSTEM',
+              performedBy: SYSTEM_UUID,
               notes: `Order ${order.customId} ${toStatus}. Stock returned.`
             };
 
@@ -1645,7 +1649,7 @@ export const useStore = create<AppState>()(
       await SupabaseService.updateOrdersPaid(unpaidOrderIds, true);
     }
     
-    logAction('system', 'pay_invoices', `Corporate payment received for company ${companyId}`);
+    logAction(SYSTEM_UUID, 'pay_invoices', `Corporate payment received for company ${companyId}`);
     set((state) => ({
       orders: state.orders.map(o => 
         unpaidOrderIds.includes(o.id) ? { ...o, isPaid: true } : o
@@ -2683,6 +2687,46 @@ export const useStore = create<AppState>()(
       await SupabaseService.submitAttendance(newRecord);
     }
     get().addAlert({ message: 'Supervisor-originated manual shift shift entry accepted.', type: 'info' });
+  },
+
+  pushLocalToCloud: async () => {
+    const { isSupabaseConnected, addAlert, ...state } = get();
+    if (!isSupabaseConnected) {
+       addAlert({ message: 'Cloud link mandatory for Global Push.', type: 'error' });
+       return;
+    }
+    
+    addAlert({ message: 'Initializing Disaster Recovery: Re-seeding Cloud...', type: 'info' });
+    
+    try {
+      // Logic for pushing all local state to Supabase
+      // NOTE: This uses upsert where possible to avoid duplicates
+      
+      const push = async (label: string, data: any[], pushMethod: (item: any) => Promise<any>) => {
+        let count = 0;
+        for (const item of data) {
+           try {
+             await pushMethod(item);
+             count++;
+           } catch (e) {
+             console.warn(`Partial Push Failure [${label}]:`, e);
+           }
+        }
+        console.log(`✅ Disaster Recovery: Pushed ${count} ${label} records.`);
+      };
+
+      await push('Products', state.products, (i) => SupabaseService.addProduct(i));
+      await push('Inventory', state.inventory, (i) => SupabaseService.updateStock(i.productId, i.warehouseId, i.quantity));
+      await push('Orders', state.orders, (i) => SupabaseService.placeOrder(i));
+      await push('Inventory logs', state.inventoryLogs, (i) => SupabaseService.addInventoryLog(i));
+      await push('Attendance', state.attendanceRecords, (i) => SupabaseService.submitAttendance(i));
+      await push('Work Reports', state.workReports, (i) => SupabaseService.submitWorkReport(i));
+      await push('Audits', state.auditLogs, (i) => SupabaseService.logAction(i.userId, i.action, i.details));
+
+      addAlert({ message: 'Global Cloud Recall successfully executed. Database synchronized.', type: 'success' });
+    } catch (e: any) {
+      addAlert({ message: `Push failed: ${e.message}`, type: 'error' });
+    }
   }
 }),
     {

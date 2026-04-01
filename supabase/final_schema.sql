@@ -864,6 +864,7 @@ ON CONFLICT (id) DO NOTHING;
 
 -- USERS
 INSERT INTO public.users (id, name, email, role, phone, status, company_id) VALUES
+('00000000-0000-0000-0000-000000000000', 'System Monitor', 'system@pyramidfm.com', 'admin', '0000000000', 'active', NULL),
 ('d1111111-3333-4333-8333-000000000001', 'Pyramid FMS Master', 'master@pyramidfms.com', 'admin', '9999988888', 'active', NULL),
 ('11111111-0000-4000-8000-000000000001', 'Admin Sameer', 'admin@pyramidfm.com', 'admin', '9876543210', 'active', NULL),
 ('11111111-0000-4000-8000-000000000002', 'John Doe', 'john@alphacorp.com', 'client_manager', '9123456780', 'active', '11111111-1111-4111-8111-111111111111'),
