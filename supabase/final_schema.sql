@@ -305,21 +305,22 @@ CREATE TABLE IF NOT EXISTS public.employees (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ATTENDANCE RECORDS (Consolidated)
+-- ATTENDANCE RECORDS (Consolidated & Hardened)
 CREATE TABLE IF NOT EXISTS public.attendance_records (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
-    location_id UUID REFERENCES public.locations(id) ON DELETE CASCADE,
+    location_id UUID REFERENCES public.locations(id) ON DELETE SET NULL,
     type TEXT NOT NULL, -- 'in', 'out'
     photo_url TEXT,
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
     check_in TIMESTAMP WITH TIME ZONE,
     check_out TIMESTAMP WITH TIME ZONE,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     status TEXT DEFAULT 'pending', -- 'verified', 'flagged'
     metadata JSONB DEFAULT '{}',
     admin_remarks TEXT,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- WORK REPORTS
@@ -330,6 +331,7 @@ CREATE TABLE IF NOT EXISTS public.work_reports (
     location_id UUID REFERENCES public.locations(id) ON DELETE CASCADE,
     remarks TEXT NOT NULL,
     image_url TEXT,
+    photo_urls TEXT[] DEFAULT '{}',
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
     status TEXT NOT NULL DEFAULT 'pending', -- 'approved', 'rejected'
@@ -348,6 +350,7 @@ CREATE TABLE IF NOT EXISTS public.field_incidents (
     description TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'Open',
     image_url TEXT,
+    photo_urls TEXT[] DEFAULT '{}',
     admin_remarks TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -737,18 +740,24 @@ CREATE POLICY "Auth View Products" ON public.products FOR SELECT TO authenticate
   USING (eligible_companies = '{}' OR public.get_my_company() = ANY(eligible_companies) OR public.get_role() = 'admin');
 CREATE POLICY "Admin All Products" ON public.products FOR ALL TO authenticated USING (public.get_role() = 'admin');
 
--- Attendance & Work Reports (Identity Scoped)
+-- Attendance & Work Reports (Identity & Company Scoped)
 CREATE POLICY "Employee Own Attendance" ON public.attendance_records FOR ALL TO authenticated 
   USING (employee_id = public.get_employee_id() OR public.get_role() = 'admin')
   WITH CHECK (employee_id = public.get_employee_id() OR public.get_role() = 'admin');
+
+CREATE POLICY "Manager View site Attendance" ON public.attendance_records FOR SELECT TO authenticated
+  USING (location_id IN (SELECT id FROM public.locations WHERE company_id = public.get_my_company()) OR public.get_role() = 'admin');
 
 CREATE POLICY "Employee Own Reports" ON public.work_reports FOR ALL TO authenticated 
   USING (employee_id = public.get_employee_id() OR public.get_role() = 'admin')
   WITH CHECK (employee_id = public.get_employee_id() OR public.get_role() = 'admin');
 
+CREATE POLICY "Manager View Site Reports" ON public.work_reports FOR SELECT TO authenticated
+  USING (location_id IN (SELECT id FROM public.locations WHERE company_id = public.get_my_company()) OR public.get_role() = 'admin');
+
 -- Field Operations (Incidents & Shifts)
 CREATE POLICY "Incident Control" ON public.field_incidents FOR ALL TO authenticated 
-  USING (user_id = auth.uid() OR public.get_role() = 'admin')
+  USING (user_id = auth.uid() OR location_id IN (SELECT id FROM public.locations WHERE company_id = public.get_my_company()) OR public.get_role() = 'admin')
   WITH CHECK (user_id = auth.uid() OR public.get_role() = 'admin');
 
 -- Commerce & Logistics (Company Scoped)
@@ -830,6 +839,26 @@ CREATE POLICY "Company Keys View" ON public.api_keys FOR SELECT TO authenticated
 -- Favorites
 CREATE POLICY "User Own Favorites" ON public.favorites FOR ALL TO authenticated 
   USING (user_id = auth.uid() OR public.get_role() = 'admin');
+
+-- STORAGE BUCKETS ---
+-- (Requires Supabase Storage to be enabled)
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('attendance', 'attendance', true),
+       ('work-reports', 'work-reports', true),
+       ('field-incidents', 'field-incidents', true),
+       ('avatars', 'avatars', true),
+       ('receipts', 'receipts', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- STORAGE POLICIES ---
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+CREATE POLICY "Public Access" ON storage.objects FOR SELECT TO public USING (bucket_id IN ('attendance', 'work-reports', 'field-incidents', 'avatars', 'receipts'));
+
+DROP POLICY IF EXISTS "Authenticated Upload" ON storage.objects;
+CREATE POLICY "Authenticated Upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id IN ('attendance', 'work-reports', 'field-incidents', 'avatars', 'receipts'));
+
+DROP POLICY IF EXISTS "Admin All" ON storage.objects;
+CREATE POLICY "Admin All" ON storage.objects FOR ALL TO authenticated USING (public.get_role() = 'admin');
 
 -- 8. SAMPLE SEED DATA
 SET session_replication_role = 'replica';

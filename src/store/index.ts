@@ -403,6 +403,7 @@ export const useStore = create<AppState>()(
     if (!isConfigured) {
       console.log('ℹ️ Supabase not configured. Using local persistence only.');
       set({ isSupabaseConnected: false });
+      addAlert({ message: 'Cloud link unconfigured. Running in Local Mode.', type: 'warning' });
       return;
     }
 
@@ -411,11 +412,13 @@ export const useStore = create<AppState>()(
       if (!isReachable) {
         set({ isSupabaseConnected: false });
         console.warn('⚠️ Supabase unreachable. Falling back to local cache.');
+        addAlert({ message: 'Supabase unreachable. Data saved locally for now.', type: 'error' });
         return;
       }
 
       set({ isSupabaseConnected: true });
       console.log('⚡ Digital Nexus: Cloud Sync Active');
+      addAlert({ message: 'Nexus Cloud Link Active. Synchronization online.', type: 'success' });
 
       const fetchData = async <K extends keyof AppState>(
         label: string, 
@@ -688,7 +691,7 @@ export const useStore = create<AppState>()(
   createReturn: async (req) => {
     const newReturn = {
       ...req,
-      id: `RET-${Date.now()}`,
+      id: generateUUID(),
       status: 'pending' as const,
       createdAt: new Date().toISOString()
     };
@@ -985,7 +988,7 @@ export const useStore = create<AppState>()(
     }
     set((state) => ({
       auditLogs: [{
-        id: `log-${Date.now()}`,
+        id: generateUUID(),
         userId,
         action,
         details,
@@ -1344,7 +1347,7 @@ export const useStore = create<AppState>()(
 
             state.inventoryLogs = [{
               ...log,
-              id: `log-${Date.now()}-${inv.productId}`,
+              id: generateUUID(),
               createdAt: new Date().toISOString()
             }, ...state.inventoryLogs].slice(0, 1000);
           } else if (fromStatus !== 'delivered') { // If not yet dispatched or delivered

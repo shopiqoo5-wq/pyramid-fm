@@ -19,17 +19,20 @@ export const SupabaseService = {
 
   async getCurrentUser(): Promise<User | null> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error: authErr } = await supabase.auth.getSession();
+      if (authErr) throw authErr;
       if (!session?.user) return null;
       
-      const { data: profile } = await supabase
+      const { data: profile, error: profErr } = await supabase
         .from('users')
         .select('*')
         .eq('id', session.user.id)
         .single();
         
+      if (profErr) throw profErr;
       return profile ? snakeToCamel(profile) : null;
-    } catch {
+    } catch (e: any) {
+      console.error('Supabase Error [getCurrentUser]:', e.message);
       return null;
     }
   },
@@ -48,17 +51,20 @@ export const SupabaseService = {
   },
 
   async addProduct(product: Omit<Product, 'id'>) {
-    const { data } = await supabase.from('products').insert(camelToSnake(product)).select().single();
+    const { data, error } = await supabase.from('products').insert(camelToSnake(product)).select().single();
+    if (error) throw error;
     return snakeToCamel(data) as Product;
   },
 
   async updateProduct(id: string, updates: Partial<Product>) {
-    const { data } = await supabase.from('products').update(camelToSnake(updates)).eq('id', id).select().single();
+    const { data, error } = await supabase.from('products').update(camelToSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
     return snakeToCamel(data) as Product;
   },
 
   async deleteProduct(id: string) {
-    await supabase.from('products').delete().eq('id', id);
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // --- COMPANIES ---
@@ -69,17 +75,20 @@ export const SupabaseService = {
   },
 
   async addCompany(company: Omit<Company, 'id'>) {
-    const { data } = await supabase.from('companies').insert(camelToSnake(company)).select().single();
+    const { data, error } = await supabase.from('companies').insert(camelToSnake(company)).select().single();
+    if (error) throw error;
     return snakeToCamel(data) as Company;
   },
 
   async updateCompany(id: string, updates: Partial<Company>) {
-    const { data } = await supabase.from('companies').update(camelToSnake(updates)).eq('id', id).select().single();
+    const { data, error } = await supabase.from('companies').update(camelToSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
     return snakeToCamel(data) as Company;
   },
 
   async deleteCompany(id: string) {
-    await supabase.from('companies').delete().eq('id', id);
+    const { error } = await supabase.from('companies').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // --- LOCATIONS ---
@@ -92,17 +101,20 @@ export const SupabaseService = {
   },
 
   async addLocation(location: any) {
-    const { data } = await supabase.from('locations').insert(camelToSnake(location)).select().single();
+    const { data, error } = await supabase.from('locations').insert(camelToSnake(location)).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
   async updateLocation(id: string, updates: any) {
-    const { data } = await supabase.from('locations').update(camelToSnake(updates)).eq('id', id).select().single();
+    const { data, error } = await supabase.from('locations').update(camelToSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
   async deleteLocation(id: string) {
-    await supabase.from('locations').delete().eq('id', id);
+    const { error } = await supabase.from('locations').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // --- ORDERS ---
@@ -132,7 +144,8 @@ export const SupabaseService = {
   },
 
   async updateOrderStatus(orderId: string, status: string) {
-    await supabase.from('orders').update({ status }).eq('id', orderId);
+    const { error } = await supabase.from('orders').update({ status }).eq('id', orderId);
+    if (error) throw error;
   },
 
   // --- INVENTORY ---
@@ -143,7 +156,14 @@ export const SupabaseService = {
   },
 
   async updateStock(productId: string, warehouseId: string, quantity: number) {
-    const { error } = await supabase.from('inventory').update({ quantity }).match({ product_id: productId, warehouse_id: warehouseId });
+    // SECURITY: Use upsert to create record if it doesnt exist
+    const { error } = await supabase.from('inventory').upsert({
+      product_id: productId,
+      warehouse_id: warehouseId,
+      quantity,
+      available_quantity: quantity,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'product_id,warehouse_id' });
     if (error) throw error;
   },
 
@@ -156,17 +176,20 @@ export const SupabaseService = {
   },
 
   async addContract(contract: any) {
-    const { data } = await supabase.from('contracts').insert(camelToSnake(contract)).select().single();
+    const { data, error } = await supabase.from('contracts').insert(camelToSnake(contract)).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
   async updateContract(id: string, updates: any) {
-    const { data } = await supabase.from('contracts').update(camelToSnake(updates)).eq('id', id).select().single();
+    const { data, error } = await supabase.from('contracts').update(camelToSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
   async deleteContract(id: string) {
-    await supabase.from('contracts').delete().eq('id', id);
+    const { error } = await supabase.from('contracts').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // --- SUPPORT ---
@@ -192,12 +215,14 @@ export const SupabaseService = {
   },
 
   async updateTicketStatus(id: string, updates: any) {
-    const { data } = await supabase.from('tickets').update(camelToSnake(updates)).eq('id', id).select().single();
+    const { data, error } = await supabase.from('tickets').update(camelToSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
   async addTicketMessage(message: any) {
-    const { data } = await supabase.from('ticket_messages').insert(camelToSnake(message)).select().single();
+    const { data, error } = await supabase.from('ticket_messages').insert(camelToSnake(message)).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
@@ -208,7 +233,8 @@ export const SupabaseService = {
   },
 
   async logAction(userId: string, action: string, details: any) {
-    await supabase.from('audit_logs').insert({ user_id: userId, action, details });
+    const { error } = await supabase.from('audit_logs').insert({ user_id: userId, action, details });
+    if (error) throw error;
   },
 
   async getInventoryLogs() {
@@ -227,7 +253,8 @@ export const SupabaseService = {
   },
 
   async resolveException(id: string) {
-    await supabase.from('exceptions').update({ resolved_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await supabase.from('exceptions').update({ resolved_at: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
   },
 
   async getExceptions() {
@@ -242,7 +269,8 @@ export const SupabaseService = {
   },
 
   async updateFraudStatus(id: string, status: string) {
-    await supabase.from('fraud_flags').update({ status }).eq('id', id);
+    const { error } = await supabase.from('fraud_flags').update({ status }).eq('id', id);
+    if (error) throw error;
   },
 
   async getFraudFlags() {
@@ -257,7 +285,8 @@ export const SupabaseService = {
   },
 
   async deleteComplianceDoc(id: string) {
-    await supabase.from('compliance_docs').delete().eq('id', id);
+    const { error } = await supabase.from('compliance_docs').delete().eq('id', id);
+    if (error) throw error;
   },
 
   async getComplianceDocs(companyId?: string) {
@@ -278,12 +307,14 @@ export const SupabaseService = {
   },
 
   async markNotificationRead(id: string) {
-    await supabase.from('notifications').update({ read: true }).eq('id', id);
+    const { error } = await supabase.from('notifications').update({ read: true }).eq('id', id);
+    if (error) throw error;
   },
 
   // --- FINANCE ---
   async updateOrdersPaid(orderIds: string[], isPaid: boolean) {
-    await supabase.from('orders').update({ is_paid: isPaid }).in('id', orderIds);
+    const { error } = await supabase.from('orders').update({ is_paid: isPaid }).in('id', orderIds);
+    if (error) throw error;
   },
 
   async updateCompanyCredit(companyId: string, amountDelta: number) {
@@ -291,30 +322,36 @@ export const SupabaseService = {
   },
 
   async markOrdersTallyExported(orderIds: string[]) {
-    await supabase.from('orders').update({ tally_exported: true }).in('id', orderIds);
+    const { error } = await supabase.from('orders').update({ tally_exported: true }).in('id', orderIds);
+    if (error) throw error;
   },
 
   // --- USERS ---
   async addUser(user: any) {
-    const { data } = await supabase.from('users').insert(camelToSnake(user)).select().single();
+    const { data, error } = await supabase.from('users').insert(camelToSnake(user)).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
   async bulkAddUsers(users: any[]) {
-    return supabase.from('users').insert(users.map(u => camelToSnake(u)));
+    const { error } = await supabase.from('users').insert(users.map(u => camelToSnake(u)));
+    if (error) throw error;
   },
 
   async updateUser(id: string, updates: any) {
-    const { data } = await supabase.from('users').update(camelToSnake(updates)).eq('id', id).select().single();
+    const { data, error } = await supabase.from('users').update(camelToSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
   async deleteUser(id: string) {
-    await supabase.from('users').delete().eq('id', id);
+    const { error } = await supabase.from('users').delete().eq('id', id);
+    if (error) throw error;
   },
 
   async updateUserFaceImage(userId: string, imageUrl: string) {
-    await supabase.from('users').update({ face_image_url: imageUrl }).eq('id', userId);
+    const { error } = await supabase.from('users').update({ face_image_url: imageUrl }).eq('id', userId);
+    if (error) throw error;
   },
 
   // --- EMPLOYEES & WORKFORCE ---
@@ -324,17 +361,20 @@ export const SupabaseService = {
   },
 
   async addEmployee(employee: any) {
-    const { data } = await supabase.from('employees').insert(camelToSnake(employee)).select().single();
+    const { data, error } = await supabase.from('employees').insert(camelToSnake(employee)).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
   async updateEmployee(id: string, updates: any) {
-    const { data } = await supabase.from('employees').update(camelToSnake(updates)).eq('id', id).select().single();
+    const { data, error } = await supabase.from('employees').update(camelToSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
   async deleteEmployee(id: string) {
-    await supabase.from('employees').delete().eq('id', id);
+    const { error } = await supabase.from('employees').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // --- BUNDLES ---
@@ -344,17 +384,20 @@ export const SupabaseService = {
   },
 
   async addProductBundle(bundle: any) {
-    const { data } = await supabase.from('product_bundles').insert(camelToSnake(bundle)).select().single();
+    const { data, error } = await supabase.from('product_bundles').insert(camelToSnake(bundle)).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
   async updateProductBundle(id: string, updates: any) {
-    const { data } = await supabase.from('product_bundles').update(camelToSnake(updates)).eq('id', id).select().single();
+    const { data, error } = await supabase.from('product_bundles').update(camelToSnake(updates)).eq('id', id).select().single();
+    if (error) throw error;
     return snakeToCamel(data);
   },
 
   async deleteProductBundle(id: string) {
-    await supabase.from('product_bundles').delete().eq('id', id);
+    const { error } = await supabase.from('product_bundles').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // --- RETURNS ---
@@ -364,7 +407,8 @@ export const SupabaseService = {
   },
 
   async updateReturnStatus(id: string, status: string) {
-    await supabase.from('return_requests').update({ status }).eq('id', id);
+    const { error } = await supabase.from('return_requests').update({ status }).eq('id', id);
+    if (error) throw error;
   },
 
   // --- FIELD OPS ---
@@ -380,7 +424,8 @@ export const SupabaseService = {
   },
 
   async updateIncidentStatus(id: string, updates: any) {
-    await supabase.from('field_incidents').update(camelToSnake(updates)).eq('id', id);
+    const { error } = await supabase.from('field_incidents').update(camelToSnake(updates)).eq('id', id);
+    if (error) throw error;
   },
 
   async getWorkReports() {
@@ -395,7 +440,8 @@ export const SupabaseService = {
   },
 
   async updateWorkReport(id: string, updates: any) {
-    await supabase.from('work_reports').update(camelToSnake(updates)).eq('id', id);
+    const { error } = await supabase.from('work_reports').update(camelToSnake(updates)).eq('id', id);
+    if (error) throw error;
   },
 
   async getAttendance(locationId?: string) {
@@ -420,11 +466,13 @@ export const SupabaseService = {
   },
 
   async updateAttendanceRecord(id: string, updates: any) {
-    await supabase.from('attendance_records').update(camelToSnake(updates)).eq('id', id);
+    const { error } = await supabase.from('attendance_records').update(camelToSnake(updates)).eq('id', id);
+    if (error) throw error;
   },
 
   async deleteAttendanceRecord(id: string) {
-    await supabase.from('attendance_records').delete().eq('id', id);
+    const { error } = await supabase.from('attendance_records').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // --- TIME OFF ---
@@ -438,7 +486,8 @@ export const SupabaseService = {
   },
 
   async updateTimeOffStatus(id: string, updates: any) {
-    await supabase.from('time_off_requests').update(camelToSnake(updates)).eq('id', id);
+    const { error } = await supabase.from('time_off_requests').update(camelToSnake(updates)).eq('id', id);
+    if (error) throw error;
   },
 
   // --- SHIFTS ---
@@ -453,11 +502,13 @@ export const SupabaseService = {
   },
 
   async updateShift(id: string, updates: any) {
-    await supabase.from('employee_shifts').update(camelToSnake(updates)).eq('id', id);
+    const { error } = await supabase.from('employee_shifts').update(camelToSnake(updates)).eq('id', id);
+    if (error) throw error;
   },
 
   async deleteShift(id: string) {
-    await supabase.from('employee_shifts').delete().eq('id', id);
+    const { error } = await supabase.from('employee_shifts').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // --- PROTOCOLS ---
@@ -472,7 +523,8 @@ export const SupabaseService = {
   },
 
   async deleteSiteProtocol(id: string) {
-    await supabase.from('site_protocols').delete().eq('id', id);
+    const { error } = await supabase.from('site_protocols').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // --- ROLES & ASSIGNMENTS ---
@@ -491,7 +543,8 @@ export const SupabaseService = {
   },
 
   async deleteCustomRole(id: string) {
-    await supabase.from('custom_roles').delete().eq('id', id);
+    const { error } = await supabase.from('custom_roles').delete().eq('id', id);
+    if (error) throw error;
   },
 
   async getWorkAssignments() {
@@ -509,7 +562,8 @@ export const SupabaseService = {
   },
 
   async deleteWorkAssignment(id: string) {
-    await supabase.from('work_assignments').delete().eq('id', id);
+    const { error } = await supabase.from('work_assignments').delete().eq('id', id);
+    if (error) throw error;
   },
 
   // --- QUOTATIONS ---
@@ -575,7 +629,8 @@ export const SupabaseService = {
   },
 
   async updateSettings(settings: any) {
-    await supabase.from('settings').upsert(camelToSnake(settings));
+    const { error } = await supabase.from('settings').upsert(camelToSnake(settings));
+    if (error) throw error;
   },
 
   async updateLocationBudget(locationId: string, budget: number) {
@@ -592,11 +647,13 @@ export const SupabaseService = {
 
   // --- QR LOGINS ---
   async addQRToken(token: any) {
-    await supabase.from('qr_tokens').insert(camelToSnake(token));
+    const { error } = await supabase.from('qr_tokens').insert(camelToSnake(token));
+    if (error) throw error;
   },
 
   async revokeQRToken(id: string) {
-    await supabase.from('qr_tokens').update({ revoked: true }).eq('id', id);
+    const { error } = await supabase.from('qr_tokens').update({ revoked: true }).eq('id', id);
+    if (error) throw error;
   },
 
   async loginWithQR(token: string) {
@@ -610,19 +667,23 @@ export const SupabaseService = {
   },
 
   async addWebhook(webhook: any) {
-    await supabase.from('webhooks').insert(camelToSnake(webhook));
+    const { error } = await supabase.from('webhooks').insert(camelToSnake(webhook));
+    if (error) throw error;
   },
 
   async updateWebhook(id: string, updates: any) {
-    await supabase.from('webhooks').update(camelToSnake(updates)).eq('id', id);
+    const { error } = await supabase.from('webhooks').update(camelToSnake(updates)).eq('id', id);
+    if (error) throw error;
   },
 
   async deleteWebhook(id: string) {
-    await supabase.from('webhooks').delete().eq('id', id);
+    const { error } = await supabase.from('webhooks').delete().eq('id', id);
+    if (error) throw error;
   },
 
   async toggleWebhookActive(id: string, active: boolean) {
-    await supabase.from('webhooks').update({ active }).eq('id', id);
+    const { error } = await supabase.from('webhooks').update({ active }).eq('id', id);
+    if (error) throw error;
   },
 
   // --- BATCHES ---
@@ -632,12 +693,16 @@ export const SupabaseService = {
   },
 
   async addBatch(batch: any) {
-    await supabase.from('batches').insert(camelToSnake(batch));
+    const { error } = await supabase.from('batches').insert(camelToSnake(batch));
+    if (error) throw error;
   },
 
   // --- STORAGE & UTILS ---
   async uploadFile(bucket: string, path: string, file: File | Blob) {
-    const { data, error } = await supabase.storage.from(bucket).upload(path, file);
+    const { data, error } = await supabase.storage.from(bucket).upload(path, file, { 
+      upsert: true,
+      contentType: (file as Blob).type || 'image/jpeg'
+    });
     if (error) throw error;
     const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(data.path);
     return publicUrl;
